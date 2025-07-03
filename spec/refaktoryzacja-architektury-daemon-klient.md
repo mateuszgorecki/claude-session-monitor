@@ -232,13 +232,13 @@ claude-session-monitor/
 
 ### Faza 2: Implementacja Demona
 
-#### Zadanie 2.1: Implementacja core demona
+#### Zadanie 2.1: Implementacja core demona ✅
 
-- [ ] **(RED)** Napisz test sprawdzający podstawowy cykl życia demona (start/stop)
-- [ ] Uruchom testy i potwierdź niepowodzenie
-- [ ] **(GREEN)** Zaimplementuj `ClaudeDaemon` w `src/daemon/claude_daemon.py`
-- [ ] Uruchom testy i potwierdź powodzenie
-- [ ] **(REFACTOR)** Dodaj signal handling i graceful shutdown
+- [x] **(RED)** Napisz test sprawdzający podstawowy cykl życia demona (start/stop)
+- [x] Uruchom testy i potwierdź niepowodzenie
+- [x] **(GREEN)** Zaimplementuj `ClaudeDaemon` w `src/daemon/claude_daemon.py`
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Dodaj signal handling i graceful shutdown
 
 #### Zadanie 2.2: Implementacja data collector
 
