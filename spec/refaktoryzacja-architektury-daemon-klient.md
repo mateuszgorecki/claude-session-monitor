@@ -1,5 +1,13 @@
 # Plan Realizacji Epica: Refaktoryzacja Architektury na Daemon + Klient + Widget
 
+## 🔧 WAŻNE: Narzędzia Deweloperskie
+
+**WSZYSTKIE operacje Python muszą być wykonywane przez `uv`:**
+- Zamiast `python` → `uv run python`
+- Zamiast `python3` → `uv run python3`
+- Zamiast `pip` → `uv pip`
+- Zamiast `python -m pytest` → `uv run python -m pytest`
+
 ## 1. Cele i Główne Założenia (Executive Summary)
 
 ### Cel Biznesowy
@@ -248,21 +256,21 @@ claude-session-monitor/
 - [x] Uruchom testy i potwierdź powodzenie
 - [x] **(REFACTOR)** Dodaj error handling i retry logic
 
-#### Zadanie 2.3: Integracja demona z file manager
+#### Zadanie 2.3: Integracja demona z file manager ✅
 
-- [ ] **(RED)** Napisz test integracyjny sprawdzający zapis danych przez demona
-- [ ] Uruchom testy i potwierdź niepowodzenie
-- [ ] **(GREEN)** Zintegruj `DataCollector` z `FileManager`
-- [ ] Uruchom testy i potwierdź powodzenie
-- [ ] **(REFACTOR)** Ustaw interwał 10 sekund dla pobierania danych
+- [x] **(RED)** Napisz test integracyjny sprawdzający zapis danych przez demona
+- [x] Uruchom testy i potwierdź niepowodzenie
+- [x] **(GREEN)** Zintegruj `DataCollector` z `FileManager`
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Ustaw interwał 10 sekund dla pobierania danych
 
-#### Zadanie 2.4: Implementacja notification manager
+#### Zadanie 2.4: Implementacja notification manager ✅
 
-- [ ] **(RED)** Napisz test sprawdzający wysyłanie notyfikacji systemowych
-- [ ] Uruchom testy i potwierdź niepowodzenie
-- [ ] **(GREEN)** Zaimplementuj `NotificationManager` w `src/daemon/notification_manager.py`
-- [ ] Uruchom testy i potwierdź powodzenie
-- [ ] **(REFACTOR)** Dodaj obsługę terminal-notifier i fallback do osascript
+- [x] **(RED)** Napisz test sprawdzający wysyłanie notyfikacji systemowych
+- [x] Uruchom testy i potwierdź niepowodzenie
+- [x] **(GREEN)** Zaimplementuj `NotificationManager` w `src/daemon/notification_manager.py`
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Dodaj obsługę terminal-notifier i fallback do osascript
 
 ### Faza 3: Refaktoryzacja Klienta
 

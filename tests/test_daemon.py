@@ -191,6 +191,59 @@ class TestClaudeDaemon(unittest.TestCase):
         # Daemon should be stopped and not crashed
         self.assertFalse(daemon.is_running)
 
+    def test_daemon_saves_data_to_file(self):
+        """Test daemon integration with file manager - saves data to disk."""
+        from shared.file_manager import DataFileManager
+        
+        daemon = ClaudeDaemon(self.test_config)
+        
+        # Mock data collector to return test data
+        test_session = SessionData(
+            session_id="test-session",
+            start_time=datetime.now(),
+            end_time=datetime.now() + timedelta(minutes=30),
+            input_tokens=1000,
+            output_tokens=2000,
+            total_tokens=3000,
+            cost_usd=0.50,
+            is_active=True
+        )
+        
+        test_monitoring_data = MonitoringData(
+            current_sessions=[test_session],
+            total_sessions_this_month=1,
+            total_cost_this_month=0.50,
+            max_tokens_per_session=3000,
+            last_update=datetime.now(),
+            billing_period_start=datetime.now() - timedelta(days=1),
+            billing_period_end=datetime.now() + timedelta(days=29)
+        )
+        
+        # Mock the daemon's data collector and file manager directly
+        daemon.data_collector = Mock()
+        daemon.data_collector.collect_data.return_value = test_monitoring_data
+        
+        daemon.file_manager = Mock()
+        
+        daemon.start()
+        
+        # Let daemon run for a brief time
+        time.sleep(0.3)
+        
+        daemon.stop()
+        
+        # Verify data collector was called
+        self.assertGreater(daemon.data_collector.collect_data.call_count, 0)
+        
+        # Verify file manager was called to save data
+        self.assertGreater(daemon.file_manager.write_monitoring_data.call_count, 0)
+        
+        # Verify correct data was saved
+        saved_data = daemon.file_manager.write_monitoring_data.call_args_list[0][0][0]
+        self.assertEqual(saved_data['total_sessions_this_month'], 1)
+        self.assertEqual(saved_data['total_cost_this_month'], 0.50)
+        self.assertEqual(saved_data['max_tokens_per_session'], 3000)
+
 
 if __name__ == '__main__':
     unittest.main()

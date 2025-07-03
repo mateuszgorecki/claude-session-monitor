@@ -16,7 +16,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.data_models import ConfigData, MonitoringData
 from shared.constants import DEFAULT_CCUSAGE_FETCH_INTERVAL_SECONDS
+from shared.file_manager import DataFileManager
 from .data_collector import DataCollector
+from .notification_manager import NotificationManager
 
 
 class ClaudeDaemon:
@@ -51,6 +53,12 @@ class ClaudeDaemon:
         
         # Data collection component
         self.data_collector = DataCollector(config)
+        
+        # File management component
+        self.file_manager = DataFileManager()
+        
+        # Notification management component
+        self.notification_manager = NotificationManager()
         
         self.logger.info(f"Daemon initialized with fetch interval: {config.ccusage_fetch_interval_seconds}s")
     
@@ -159,17 +167,76 @@ class ClaudeDaemon:
             total_cost = monitoring_data.total_cost_this_month
             self.logger.info(f"Collected {sessions_count} sessions, total cost: ${total_cost:.4f}")
             
-            # TODO: In Task 2.3, this data will be saved to file using FileManager
+            # Save data to file using FileManager with error handling
+            try:
+                success = self.file_manager.write_monitoring_data(monitoring_data.to_dict())
+                if success:
+                    self.logger.debug("Data saved to file successfully")
+                else:
+                    self.logger.warning("Failed to save data to file")
+            except Exception as e:
+                self.logger.error(f"Error saving data to file: {e}")
+                # Continue running despite file write errors
+            
+            # Check for notification conditions
+            self._check_notification_conditions(monitoring_data)
             
         except RuntimeError as e:
             # Log collection failures but don't stop the daemon
             error_status = self.data_collector.get_error_status()
             if error_status and error_status.consecutive_failures > 5:
                 self.logger.warning(f"Data collection has failed {error_status.consecutive_failures} consecutive times")
+                # Send error notification for repeated failures
+                self._send_error_notification(error_status)
             else:
                 self.logger.error(f"Data collection failed: {e}")
-            
-            # In Task 2.4, notification manager will handle alerts for repeated failures
+    
+    def _check_notification_conditions(self, monitoring_data: MonitoringData):
+        """
+        Check monitoring data for notification conditions and send alerts as needed.
+        
+        Args:
+            monitoring_data: Current monitoring data
+        """
+        try:
+            # Check each active session for time warnings and inactivity
+            for session in monitoring_data.current_sessions:
+                if not session.is_active or session.end_time is None:
+                    continue
+                
+                # Check time remaining warning
+                time_remaining = session.end_time - datetime.now()
+                minutes_remaining = int(time_remaining.total_seconds() / 60)
+                
+                if 0 < minutes_remaining <= self.config.time_remaining_alert_minutes:
+                    self.notification_manager.send_time_warning(minutes_remaining)
+                
+                # Check inactivity (simplified - using start_time as proxy for last activity)
+                time_since_start = datetime.now() - session.start_time
+                minutes_since_start = int(time_since_start.total_seconds() / 60)
+                
+                # If session is long-running (over 1 hour), consider it potentially inactive
+                if minutes_since_start >= 60 and minutes_since_start % self.config.inactivity_alert_minutes == 0:
+                    # Send inactivity alert every inactivity_alert_minutes for long sessions
+                    if minutes_since_start >= self.config.inactivity_alert_minutes * 6:  # After 1 hour minimum
+                        minutes_inactive = minutes_since_start - 60  # Approximate inactivity
+                        self.notification_manager.send_inactivity_alert(minutes_inactive)
+        
+        except Exception as e:
+            self.logger.error(f"Error checking notification conditions: {e}")
+    
+    def _send_error_notification(self, error_status):
+        """
+        Send error notification for repeated failures.
+        
+        Args:
+            error_status: ErrorStatus object with failure information
+        """
+        try:
+            error_message = f"{error_status.consecutive_failures} consecutive failures: {error_status.error_message}"
+            self.notification_manager.send_error_notification(error_message)
+        except Exception as e:
+            self.logger.error(f"Failed to send error notification: {e}")
     
     def __enter__(self):
         """Context manager entry."""
