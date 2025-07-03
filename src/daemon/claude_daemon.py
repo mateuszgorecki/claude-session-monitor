@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.data_models import ConfigData, MonitoringData
 from shared.constants import DEFAULT_CCUSAGE_FETCH_INTERVAL_SECONDS
+from .data_collector import DataCollector
 
 
 class ClaudeDaemon:
@@ -47,6 +48,9 @@ class ClaudeDaemon:
         
         # Register signal handlers
         self._setup_signal_handlers()
+        
+        # Data collection component
+        self.data_collector = DataCollector(config)
         
         self.logger.info(f"Daemon initialized with fetch interval: {config.ccusage_fetch_interval_seconds}s")
     
@@ -144,14 +148,28 @@ class ClaudeDaemon:
     
     def _collect_data(self):
         """
-        Collect monitoring data (placeholder for now).
-        
-        This method will be implemented in Task 2.2 (data collector).
-        For now, it's a placeholder that allows the daemon to run.
+        Collect monitoring data using DataCollector.
         """
-        self.logger.debug("Collecting monitoring data...")
-        # Placeholder - actual implementation in Task 2.2
-        pass
+        try:
+            self.logger.debug("Collecting monitoring data...")
+            monitoring_data = self.data_collector.collect_data()
+            
+            # Log summary of collected data
+            sessions_count = len(monitoring_data.current_sessions)
+            total_cost = monitoring_data.total_cost_this_month
+            self.logger.info(f"Collected {sessions_count} sessions, total cost: ${total_cost:.4f}")
+            
+            # TODO: In Task 2.3, this data will be saved to file using FileManager
+            
+        except RuntimeError as e:
+            # Log collection failures but don't stop the daemon
+            error_status = self.data_collector.get_error_status()
+            if error_status and error_status.consecutive_failures > 5:
+                self.logger.warning(f"Data collection has failed {error_status.consecutive_failures} consecutive times")
+            else:
+                self.logger.error(f"Data collection failed: {e}")
+            
+            # In Task 2.4, notification manager will handle alerts for repeated failures
     
     def __enter__(self):
         """Context manager entry."""

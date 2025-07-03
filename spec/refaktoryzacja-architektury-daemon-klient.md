@@ -240,13 +240,13 @@ claude-session-monitor/
 - [x] Uruchom testy i potwierdź powodzenie
 - [x] **(REFACTOR)** Dodaj signal handling i graceful shutdown
 
-#### Zadanie 2.2: Implementacja data collector
+#### Zadanie 2.2: Implementacja data collector ✅
 
-- [ ] **(RED)** Napisz test sprawdzający pobieranie danych z `ccusage`
-- [ ] Uruchom testy i potwierdź niepowodzenie (mock ccusage)
-- [ ] **(GREEN)** Zaimplementuj `DataCollector` w `src/daemon/data_collector.py`
-- [ ] Uruchom testy i potwierdź powodzenie
-- [ ] **(REFACTOR)** Dodaj error handling i retry logic
+- [x] **(RED)** Napisz test sprawdzający pobieranie danych z `ccusage`
+- [x] Uruchom testy i potwierdź niepowodzenie (mock ccusage)
+- [x] **(GREEN)** Zaimplementuj `DataCollector` w `src/daemon/data_collector.py`
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Dodaj error handling i retry logic
 
 #### Zadanie 2.3: Integracja demona z file manager
 
