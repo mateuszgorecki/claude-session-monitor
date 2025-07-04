@@ -36,18 +36,41 @@ class DataCollector:
         """
         try:
             # Execute ccusage command (use run_ccusage for consistency)
-            data = self.run_ccusage()
+            # Use intelligent fetch strategy for billing period optimization
+            config_dict = self.config.to_dict()
+            fetch_since = self.determine_fetch_strategy(config_dict, self.config.billing_start_day)
+            
+            # Execute ccusage with smart fetching
+            data = self.run_ccusage(fetch_since)
             if not data or "blocks" not in data:
                 self._consecutive_failures += 1
                 error_msg = "No blocks data returned from ccusage"
                 self.logger.error(f"{error_msg} (consecutive failures: {self._consecutive_failures})")
                 raise RuntimeError(error_msg)
             
-            # Convert blocks to sessions
-            sessions = []
+            # CRITICAL FIX: Filter blocks to billing period only
             blocks = data.get('blocks', [])
             
+            # Calculate billing period start
+            billing_start_date = self.get_subscription_period_start(self.config.billing_start_day)
+            billing_start_utc = datetime.combine(billing_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+            
+            # Filter to current billing period only (excluding gaps)
+            period_blocks = []
             for block in blocks:
+                if block.get("isGap", False):
+                    continue
+                try:
+                    start_time = datetime.fromisoformat(block["startTime"].replace('Z', '+00:00'))
+                    if start_time >= billing_start_utc:
+                        period_blocks.append(block)
+                except Exception as e:
+                    self.logger.warning(f"Failed to parse startTime for block {block.get('id', 'unknown')}: {e}")
+                    continue
+            
+            # Convert filtered blocks to sessions
+            sessions = []
+            for block in period_blocks:
                 try:
                     session = self._parse_ccusage_block(block)
                     sessions.append(session)

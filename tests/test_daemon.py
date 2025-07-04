@@ -10,7 +10,7 @@ import signal
 import tempfile
 import os
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add src to path for imports
@@ -200,8 +200,8 @@ class TestClaudeDaemon(unittest.TestCase):
         # Mock data collector to return test data
         test_session = SessionData(
             session_id="test-session",
-            start_time=datetime.now(),
-            end_time=datetime.now() + timedelta(minutes=30),
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc) + timedelta(minutes=30),
             input_tokens=1000,
             output_tokens=2000,
             total_tokens=3000,
@@ -214,9 +214,9 @@ class TestClaudeDaemon(unittest.TestCase):
             total_sessions_this_month=1,
             total_cost_this_month=0.50,
             max_tokens_per_session=3000,
-            last_update=datetime.now(),
-            billing_period_start=datetime.now() - timedelta(days=1),
-            billing_period_end=datetime.now() + timedelta(days=29)
+            last_update=datetime.now(timezone.utc),
+            billing_period_start=datetime.now(timezone.utc) - timedelta(days=1),
+            billing_period_end=datetime.now(timezone.utc) + timedelta(days=29)
         )
         
         # Mock the daemon's data collector and file manager directly
