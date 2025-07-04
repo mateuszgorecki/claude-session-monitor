@@ -242,7 +242,7 @@ class ConfigFileManager(FileManager):
         
         # iCloud path for config sync
         icloud_config_path = os.path.expanduser(
-            "~/Library/Mobile Documents/iCloud~com~claude~monitor/config.json"
+            "~/Library/Mobile Documents/com~apple~CloudDocs/claude-monitor/config.json"
         )
         
         super().__init__(config_file, icloud_config_path)
@@ -304,7 +304,7 @@ class DataFileManager(FileManager):
         
         # iCloud path for data sync (for widget access)
         icloud_data_path = os.path.expanduser(
-            "~/Library/Mobile Documents/iCloud~com~claude~monitor/monitor_data.json"
+            "~/Library/Mobile Documents/com~apple~CloudDocs/claude-monitor/monitor_data.json"
         )
         
         super().__init__(data_file, icloud_data_path)

@@ -8,7 +8,7 @@ import time
 import signal
 import logging
 from typing import Optional, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 
 import sys
 import os
@@ -205,14 +205,14 @@ class ClaudeDaemon:
                     continue
                 
                 # Check time remaining warning
-                time_remaining = session.end_time - datetime.now()
+                time_remaining = session.end_time - datetime.now(timezone.utc)
                 minutes_remaining = int(time_remaining.total_seconds() / 60)
                 
                 if 0 < minutes_remaining <= self.config.time_remaining_alert_minutes:
                     self.notification_manager.send_time_warning(minutes_remaining)
                 
                 # Check inactivity (simplified - using start_time as proxy for last activity)
-                time_since_start = datetime.now() - session.start_time
+                time_since_start = datetime.now(timezone.utc) - session.start_time
                 minutes_since_start = int(time_since_start.total_seconds() / 60)
                 
                 # If session is long-running (over 1 hour), consider it potentially inactive

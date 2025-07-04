@@ -27,7 +27,7 @@ DEFAULT_DATA_FILE = "monitor_data.json"
 DEFAULT_LOG_FILE = "claude-monitor.log"
 
 # iCloud Drive Paths
-ICLOUD_CONTAINER_ID = "iCloud~com~claude~monitor"
+ICLOUD_CONTAINER_ID = "com~apple~CloudDocs"
 ICLOUD_BASE_PATH = f"~/Library/Mobile Documents/{ICLOUD_CONTAINER_ID}"
 ICLOUD_DATA_FILE = "monitor_data.json"
 ICLOUD_CONFIG_FILE = "config.json"
