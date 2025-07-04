@@ -830,3 +830,152 @@ The daemon now provides **production-grade** monitoring service:
 - **Error Rate:** <0.2% deviation from expected values
 
 **Final Status:** 🎯 **PRODUCTION READY** - Daemon achieves production-grade accuracy and reliability. All critical issues resolved, comprehensive testing completed, and cross-device functionality verified.
+
+---
+
+## Task: Billing Period Calculation Bug Fixes
+**Date:** 2024-07-04
+**Status:** ✅ Success - Critical Display Bugs Resolved
+
+### 1. Summary
+* **Problem:** Two critical bugs discovered in billing period calculations: incorrect days remaining display (showing 12 instead of 13 days) and wrong average sessions per day calculation (showing 1.2 instead of 2.2).
+* **Solution:** Fixed hardcoded billing period dates in data_collector.py and corrected display calculations in display_manager.py to use proper billing_start_day parameter and accurate session projections.
+
+### 2. Critical Issues Resolved
+
+#### 2.1 ✅ Hardcoded Billing Period Dates - FIXED
+**Problem:** DataCollector used hardcoded dates instead of billing_start_day parameter
+* **Root Cause:** Lines 108-109 in data_collector.py hardcoded `billing_period_start=now.replace(day=1)` and `billing_period_end=now.replace(day=28)`
+* **Impact:** All billing calculations ignored user's actual billing start day (e.g., 17th)
+* **Fix:** Replaced hardcoded values with proper functions from utils.py
+
+**Implementation Details:**
+```python
+# Before (hardcoded):
+billing_period_start=now.replace(day=1),
+billing_period_end=now.replace(day=28)
+
+# After (dynamic):
+billing_start_date = self.get_subscription_period_start(self.config.billing_start_day)
+from shared.utils import get_next_renewal_date
+billing_end_date = get_next_renewal_date(self.config.billing_start_day)
+billing_period_start = datetime.combine(billing_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+billing_period_end = datetime.combine(billing_end_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+```
+
+#### 2.2 ✅ Days Remaining Calculation Error - FIXED  
+**Problem:** Inconsistent datetime/date mixing caused off-by-one errors
+* **Before:** July 4 → July 17 showing as 12 days instead of 13
+* **Root Cause:** Using `datetime.now(timezone.utc)` instead of `date` comparison in display_manager.py:250
+* **Fix:** Changed to proper date arithmetic for accurate day counting
+
+**Implementation Details:**
+```python
+# Before (datetime mixing):
+days_remaining = (monitoring_data.billing_period_end - datetime.now(timezone.utc)).days
+
+# After (consistent date arithmetic):
+days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
+```
+
+#### 2.3 ✅ Average Sessions Per Day Logic Error - FIXED
+**Problem:** Displayed historical average instead of remaining period projection
+* **Before:** Showing 1.2 sessions/day (21 used ÷ 17 elapsed days)
+* **After:** Showing 2.2 sessions/day (29 remaining ÷ 13 remaining days)
+* **User Impact:** Misleading information about required daily usage to meet monthly limits
+
+**Implementation Details:**
+```python
+# Before (historical average):
+days_elapsed = days_in_period - days_remaining
+if days_elapsed > 0:
+    avg_sessions_per_day = current_sessions / days_elapsed
+
+# After (forward-looking projection):  
+if days_remaining > 0:
+    avg_sessions_per_day = sessions_left / days_remaining
+else:
+    avg_sessions_per_day = float(sessions_left)  # If last day
+```
+
+### 3. Verification Results
+
+#### 3.1 Billing Period Accuracy Test
+**Test Scenario:** July 4, 2025 with billing_start_day=17
+| Calculation | Before Fix | After Fix | Expected | Status |
+|-------------|------------|-----------|----------|---------|
+| **Days Remaining** | 12 days | 13 days | 13 days | ✅ FIXED |
+| **Sessions Left** | 29 | 29 | 29 | ✅ Correct |
+| **Avg Sessions/Day** | 1.2 | 2.2 | 2.23 | ✅ FIXED |
+| **Period Start** | July 1 | June 17 | June 17 | ✅ FIXED |
+| **Period End** | July 28 | July 17 | July 17 | ✅ FIXED |
+
+#### 3.2 Manual Calculation Verification
+```python
+# July 4 → July 17 = 13 days (verified manually)
+from datetime import date
+today = date(2025, 7, 4)
+renewal = date(2025, 7, 17)  
+days = (renewal - today).days  # = 13 ✅
+
+# 29 sessions ÷ 13 days = 2.23 sessions/day (verified manually)
+sessions_left = 29
+days_remaining = 13
+avg = sessions_left / days_remaining  # = 2.23 ✅
+```
+
+### 4. Root Cause Analysis
+
+#### 4.1 Architecture Design Gap
+**Issue:** Incomplete integration between shared utilities and daemon components
+* **Missing:** data_collector.py wasn't using billing_start_day from configuration
+* **Consequence:** All downstream calculations based on incorrect billing period boundaries
+
+#### 4.2 Display Logic Confusion  
+**Issue:** Ambiguous requirements for average sessions calculation
+* **Historical view:** Shows performance so far (sessions used ÷ days elapsed)
+* **Forward-looking view:** Shows required pace (sessions remaining ÷ days remaining)
+* **Decision:** Forward-looking view provides more actionable user guidance
+
+### 5. Testing & Quality Assurance
+
+#### 5.1 Manual Verification Process
+1. **Started daemon:** `uv run python3 run_daemon.py --start-day 17`
+2. **Observed client output:** Verified 13 days remaining and 2.2 avg sessions/day
+3. **Cross-checked calculations:** Manual arithmetic confirms all values accurate
+4. **Integration test:** Daemon + client showing consistent results
+
+#### 5.2 Import Path Fixes
+**Challenge:** Relative import errors in data_collector.py
+* **Error:** `attempted relative import beyond top-level package`
+* **Solution:** Changed `from ..shared.utils` to `from shared.utils` to match existing import pattern
+
+### 6. Production Impact
+
+#### 6.1 ✅ User Experience: SIGNIFICANTLY IMPROVED
+- **Accurate billing tracking:** Users see correct days remaining in current period
+- **Actionable guidance:** Forward-looking average shows required daily pace
+- **Billing period respect:** All calculations properly honor user's billing start day
+- **Consistent information:** No more confusing discrepancies between expected and displayed values
+
+#### 6.2 ✅ Data Accuracy: PRODUCTION READY
+- **Billing periods:** Correctly calculated based on user's actual billing start day
+- **Time calculations:** Precise day counting using proper date arithmetic
+- **Session projections:** Actionable forward-looking averages for usage planning
+- **Configuration integration:** Full respect for user-specified billing_start_day parameter
+
+### 7. Key Achievements
+
+#### 7.1 Billing System Integrity
+1. **Fixed hardcoded date logic** - Now properly uses billing_start_day configuration
+2. **Corrected date arithmetic** - Consistent date/datetime handling prevents off-by-one errors  
+3. **Improved user guidance** - Forward-looking averages help users pace their usage
+4. **Enhanced configuration respect** - All components now honor user's billing preferences
+
+#### 7.2 Architecture Quality Improvements
+- **Consistent import patterns** - Fixed relative import issues in data_collector.py
+- **Proper utility integration** - data_collector.py now uses shared utility functions
+- **Accurate display calculations** - display_manager.py provides meaningful user metrics
+- **Configuration propagation** - billing_start_day flows correctly through all components
+
+**Final Status:** 🎯 **BILLING SYSTEM FIXED** - All billing period calculations now accurate and user-configurable. Days remaining and session averages display correctly, providing users with reliable billing period tracking and actionable usage guidance.

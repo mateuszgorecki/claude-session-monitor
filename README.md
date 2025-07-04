@@ -139,13 +139,47 @@ You can modify these values in the source code:
 - `INACTIVITY_ALERT_MINUTES = 10` - Notification for idle periods
 - `LOCAL_TZ = ZoneInfo("Europe/Warsaw")` - Default display timezone (can be overridden with --timezone)
 
+## Quick Start: Daemon + Client Architecture
+
+### 🚀 Basic Testing (Two Terminals)
+
+**Terminal 1 - Start Daemon:**
+```bash
+uv run python3 run_daemon.py --start-day 15  # Your billing start day (1-31)
+```
+
+**Terminal 2 - Start Client:**
+```bash
+uv run python3 claude_client_standalone.py
+```
+
+### 🎯 Smart Mode (One Command)
+```bash
+# Automatically detects if daemon is running and chooses best mode
+uv run python3 claude_monitor_smart.py --start-day 15
+```
+
+### ⚙️ Configuration Options
+```bash
+# Daemon with custom settings
+uv run python3 run_daemon.py --start-day 15 --sessions 100 --time-alert 45
+
+# Check daemon status
+uv run python3 claude_client_standalone.py --check-daemon
+
+# Smart wrapper info
+uv run python3 claude_monitor_smart.py --daemon-info
+```
+
 ## How It Works
 
-1. **Data Fetching**: Integrates with `ccusage blocks -j` to retrieve usage data
-2. **Local Caching**: Maintains cache with 10-second refresh intervals
-3. **Session Tracking**: Monitors active sessions by comparing current time with session ranges
-4. **Statistics**: Updates monthly statistics when sessions end
-5. **Persistence**: Saves configuration and historical maximums to JSON file
+**New Architecture (Daemon + Client):**
+- **Daemon**: Runs in background, collects data every 10 seconds, saves to files
+- **Client**: Reads from files, displays identical UI as original monitor
+- **Smart Wrapper**: Auto-detects mode and provides backward compatibility
+
+**Legacy Mode:**
+- **Direct**: Original `claude_monitor.py` calls `ccusage` on every refresh
 
 ## License
 

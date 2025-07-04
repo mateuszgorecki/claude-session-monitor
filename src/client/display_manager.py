@@ -142,12 +142,11 @@ class DisplayManager:
         sessions_used = current_sessions
         sessions_left = total_monthly_sessions - current_sessions
         
-        # Calculate average sessions per day
-        days_elapsed = days_in_period - days_remaining
-        if days_elapsed > 0:
-            avg_sessions_per_day = current_sessions / days_elapsed
+        # Calculate average sessions per day for remaining period
+        if days_remaining > 0:
+            avg_sessions_per_day = sessions_left / days_remaining
         else:
-            avg_sessions_per_day = 0.0
+            avg_sessions_per_day = float(sessions_left)  # If last day
             
         return {
             'sessions_used': sessions_used,
@@ -247,7 +246,7 @@ class DisplayManager:
         # Calculate billing period info
         period_duration = monitoring_data.billing_period_end - monitoring_data.billing_period_start
         days_in_period = period_duration.days
-        days_remaining = (monitoring_data.billing_period_end - datetime.now(timezone.utc)).days
+        days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
         
         # Calculate session statistics
         session_stats = self.calculate_session_stats(

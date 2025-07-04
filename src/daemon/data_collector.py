@@ -99,14 +99,23 @@ class DataCollector:
             self._consecutive_failures = 0
             self.logger.debug(f"Successfully collected {len(sessions)} sessions, total cost: ${total_cost_usd:.4f}")
             
+            # Calculate proper billing period dates
+            billing_start_date = self.get_subscription_period_start(self.config.billing_start_day)
+            from shared.utils import get_next_renewal_date
+            billing_end_date = get_next_renewal_date(self.config.billing_start_day)
+            
+            # Convert dates to datetime for consistency
+            billing_period_start = datetime.combine(billing_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+            billing_period_end = datetime.combine(billing_end_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+            
             return MonitoringData(
                 current_sessions=sessions,
                 total_sessions_this_month=len(sessions),
                 total_cost_this_month=total_cost_usd,
                 max_tokens_per_session=max_tokens,
                 last_update=now,
-                billing_period_start=now.replace(day=1),
-                billing_period_end=now.replace(day=28)
+                billing_period_start=billing_period_start,
+                billing_period_end=billing_period_end
             )
             
         except subprocess.TimeoutExpired:
