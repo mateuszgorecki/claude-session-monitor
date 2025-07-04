@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from daemon.claude_daemon import ClaudeDaemon
 from daemon.notification_manager import NotificationManager, NotificationType
 from shared.data_models import ConfigData, ErrorStatus, SessionData, MonitoringData
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class TestDaemonNotificationIntegration(unittest.TestCase):
@@ -77,10 +77,11 @@ class TestDaemonNotificationIntegration(unittest.TestCase):
         mock_data_collector.return_value = mock_collector_instance
         
         # Create active session ending in 25 minutes
-        end_time = datetime.now() + timedelta(minutes=25)
+        now_utc = datetime.now(timezone.utc)
+        end_time = now_utc + timedelta(minutes=25)
         session = SessionData(
             session_id="test-session",
-            start_time=datetime.now() - timedelta(hours=1),
+            start_time=now_utc - timedelta(hours=1),
             end_time=end_time,
             total_tokens=1500,
             input_tokens=1000,
@@ -94,9 +95,9 @@ class TestDaemonNotificationIntegration(unittest.TestCase):
             total_sessions_this_month=1,
             total_cost_this_month=0.15,
             max_tokens_per_session=1500,
-            last_update=datetime.now(),
-            billing_period_start=datetime.now().replace(day=1),
-            billing_period_end=datetime.now().replace(day=28)
+            last_update=now_utc,
+            billing_period_start=now_utc.replace(day=1),
+            billing_period_end=now_utc.replace(day=28)
         )
         
         mock_collector_instance.collect_data.return_value = monitoring_data
@@ -124,10 +125,11 @@ class TestDaemonNotificationIntegration(unittest.TestCase):
         mock_data_collector.return_value = mock_collector_instance
         
         # Create session that started 70 minutes ago (triggering inactivity logic)
+        now_utc = datetime.now(timezone.utc)
         session = SessionData(
             session_id="test-session",
-            start_time=datetime.now() - timedelta(minutes=70),
-            end_time=datetime.now() + timedelta(hours=1),  # Still active
+            start_time=now_utc - timedelta(minutes=70),
+            end_time=now_utc + timedelta(hours=1),  # Still active
             total_tokens=1500,
             input_tokens=1000,
             output_tokens=500,
@@ -140,9 +142,9 @@ class TestDaemonNotificationIntegration(unittest.TestCase):
             total_sessions_this_month=1,
             total_cost_this_month=0.15,
             max_tokens_per_session=1500,
-            last_update=datetime.now(),
-            billing_period_start=datetime.now().replace(day=1),
-            billing_period_end=datetime.now().replace(day=28)
+            last_update=now_utc,
+            billing_period_start=now_utc.replace(day=1),
+            billing_period_end=now_utc.replace(day=28)
         )
         
         mock_collector_instance.collect_data.return_value = monitoring_data

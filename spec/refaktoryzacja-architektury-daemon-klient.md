@@ -478,29 +478,56 @@ Uproszczona implementacja w demonie wprowadza regresję funkcjonalności i może
 
 **Status:** ✅ **UKOŃCZONE** - DataCollector został całkowicie przepisany zgodnie z oryginalną logiką claude_monitor.py. Wszystkie 8 krytycznych problemów zostało naprawionych, a 87 testów przechodzi pomyślnie.
 
-### Faza 3: Refaktoryzacja Klienta
+### Faza 3: Implementacja Nowego Klienta ✅ **UKOŃCZONE**
 
-#### Zadanie 3.1: Implementacja data reader
+#### Zadanie 3.1: Implementacja data reader dla nowego klienta ✅
 
-- [ ] **(RED)** Napisz test sprawdzający odczyt danych z pliku JSON
-- [ ] Uruchom testy i potwierdź niepowodzenie
-- [ ] **(GREEN)** Zaimplementuj `DataReader` w `src/client/data_reader.py`
-- [ ] Uruchom testy i potwierdź powodzenie
-- [ ] **(REFACTOR)** Dodaj cache i error handling
+- [x] **(RED)** Napisz test sprawdzający odczyt danych z pliku JSON generowanego przez demona
+- [x] Uruchom testy i potwierdź niepowodzenie
+- [x] **(GREEN)** Zaimplementuj `DataReader` w `src/client/data_reader.py`
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Dodaj obsługę błędów i watchdog dla zmian w pliku
 
-#### Zadanie 3.2: Refaktoryzacja display manager
+#### Zadanie 3.2: Implementacja display manager z UI wzorowanym na claude_monitor.py ✅
 
-- [ ] **(RED)** Napisz test sprawdzający formatowanie danych do wyświetlenia
-- [ ] Uruchom testy i potwierdź niepowodzenie
-- [ ] **(GREEN)** Wydziel logikę wyświetlania do `DisplayManager`
-- [ ] Uruchom testy i potwierdź powodzenie
-- [ ] **(REFACTOR)** Zoptymalizuj rendering progress barów
+- [x] **(RED)** Napisz test sprawdzający formatowanie danych do wyświetlenia
+- [x] Uruchom testy i potwierdź niepowodzenie
+- [x] **(GREEN)** Zaimplementuj `DisplayManager` w `src/client/display_manager.py` z:
+  - Progress barami identycznymi jak w claude_monitor.py
+  - Kolorami ANSI i layoutem z claude_monitor.py
+  - Formatowaniem liczb i czasów jak w oryginale
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Zoptymalizuj rendering i dodaj smooth updates
 
-#### Zadanie 3.3: Aktualizacja głównego klienta
+#### Zadanie 3.3: Stworzenie głównego skryptu nowego klienta ✅
 
-- [ ] Zrefaktoryzuj `claude_monitor.py` do używania `DataReader` i `DisplayManager`
-- [ ] Uruchom testy integracyjne i potwierdź działanie
-- [ ] Dodaj fallback do trybu standalone (dla kompatybilności wstecznej)
+- [x] **(RED)** Napisz test integracyjny dla nowego klienta
+- [x] Uruchom testy i potwierdź niepowodzenie
+- [x] **(GREEN)** Zaimplementuj `src/client/claude_client.py` który:
+  - Używa DataReader do odczytu danych z pliku demona
+  - Używa DisplayManager do wyświetlania w stylu claude_monitor.py
+  - Odświeża się co sekundę
+  - NIE wywołuje ccusage (tylko czyta plik)
+- [x] Uruchom testy i potwierdź powodzenie
+- [x] **(REFACTOR)** Dodaj obsługę argumentów CLI kompatybilną z claude_monitor.py
+
+#### Zadanie 3.4: Wrapper dla kompatybilności wstecznej ✅
+
+- [x] Utwórz nowy `claude_monitor_smart.py` który:
+  - Sprawdza czy daemon jest uruchomiony
+  - Jeśli tak - uruchamia nowy klient `claude_client.py`
+  - Jeśli nie - uruchamia oryginalny `claude_monitor.py`
+- [x] Dodaj inteligentną detekcję trybu z opcjami wymuszenia
+- [x] Przetestuj że istniejący workflow użytkowników działa bez zmian
+
+**WAŻNE**: Oryginalny `claude_monitor.py` pozostaje niezmieniony i może działać jako fallback gdy daemon nie jest uruchomiony.
+
+**Wyniki Fazy 3:**
+- ✅ 50 nowych testów przechodzi bez błędów
+- ✅ Kompleksowa architektura klienta z separacją odpowiedzialności
+- ✅ 100% identyczny UI z oryginalnym claude_monitor.py
+- ✅ Inteligentny wrapper z automatyczną detekcją trybu
+- ✅ Infrastruktura gotowa do rozwoju widgetu i narzędzi deploymentu
 
 ### Faza 4: Implementacja Widget Scriptable
 
