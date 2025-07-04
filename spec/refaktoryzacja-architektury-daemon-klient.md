@@ -272,6 +272,212 @@ claude-session-monitor/
 - [x] Uruchom testy i potwierdź powodzenie
 - [x] **(REFACTOR)** Dodaj obsługę terminal-notifier i fallback do osascript
 
+#### Zadanie 2.5: Metodologia Obsługi ccusage - Wymaganie Zachowania Oryginalnego Podejścia
+
+**KLUCZOWE WYMAGANIE:** Implementacja obsługi ccusage w nowym rozwiązaniu demonowym **MUSI** być identyczna z oryginalną implementacją w `claude_monitor.py`, ponieważ obecne rozwiązanie uproszczone nie jest satysfakcjonujące i nie gwarantuje poprawności działania.
+
+##### Problemy z Obecną Implementacją Demona
+
+Aktualny `data_collector.py` zawiera uproszczoną implementację, która pomija kluczowe aspekty oryginalnej logiki:
+
+1. **Brak inteligentnej strategii pobierania danych** - wywołuje tylko `ccusage blocks -j` bez parametrów
+2. **Brak obsługi okresów rozliczeniowych** - nie uwzględnia parametru `--start-day`
+3. **Brak optymalizacji incrementalnej** - pobiera zawsze wszystkie dane zamiast używać parametru `-s`
+4. **Nieprawidłowe przetwarzanie bloków** - używa niewłaściwych nazw pól:
+   - `start_time` zamiast `startTime`
+   - `end_time` zamiast `endTime`
+   - `cost` zamiast `costUSD`
+   - Próbuje czytać `input_tokens`/`output_tokens` bezpośrednio zamiast z `tokenCounts`
+5. **Nieprawidłowa logika aktywności sesji** - używa arbitralnego 5-minutowego okna zamiast sprawdzać zakres czasu
+6. **Brak śledzenia przetworzonych sesji** - może liczyć te same sesje wielokrotnie
+7. **Brak cache'owania danych** - niepotrzebnie wywołuje ccusage przy każdym odczycie
+8. **Brak zaawansowanej obsługi błędów** - nie obsługuje przypadków gdy ccusage zwraca błąd
+
+##### Struktura Danych z ccusage (Rzeczywista)
+
+Analiza wywołania `ccusage blocks -j` pokazuje faktyczną strukturę:
+
+```json
+{
+  "blocks": [
+    {
+      "id": "2025-06-18T08:00:00.000Z",
+      "startTime": "2025-06-18T08:00:00.000Z",
+      "endTime": "2025-06-18T13:00:00.000Z",
+      "actualEndTime": "2025-06-18T12:57:59.777Z",
+      "isActive": false,
+      "isGap": false,
+      "entries": 527,
+      "tokenCounts": {
+        "inputTokens": 5941,
+        "outputTokens": 23196,
+        "cacheCreationInputTokens": 1094754,
+        "cacheReadInputTokens": 19736284
+      },
+      "totalTokens": 29137,
+      "costUSD": 16.636553099999986,
+      "models": ["claude-sonnet-4", "claude-opus-4"],
+      "burnRate": null,
+      "projection": null
+    }
+  ]
+}
+```
+
+##### Wymagana Implementacja - Zachowanie Oryginalnej Logiki
+
+**1. Funkcja `run_ccusage()` (linie 102-109):**
+```python
+def run_ccusage(since_date: str = None) -> dict:
+    command = ["ccusage", "blocks", "-j"]
+    if since_date: command.extend(["-s", since_date])
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+    except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+        return {"blocks": []}
+```
+
+**2. Poprawne parsowanie bloków:**
+```python
+def _parse_ccusage_block(self, block: Dict[str, Any]) -> SessionData:
+    # Parsowanie z prawidłowymi nazwami pól
+    start_time = datetime.fromisoformat(block['startTime'].replace('Z', '+00:00'))
+    end_time = None
+    if 'endTime' in block and block['endTime']:
+        end_time = datetime.fromisoformat(block['endTime'].replace('Z', '+00:00'))
+    
+    # Tokeny są w zagnieżdżonej strukturze
+    token_counts = block.get('tokenCounts', {})
+    input_tokens = token_counts.get('inputTokens', 0)
+    output_tokens = token_counts.get('outputTokens', 0)
+    total_tokens = block.get('totalTokens', 0)  # Suma input+output
+    
+    # Pozostałe pola
+    cost_usd = block.get('costUSD', 0)
+    is_active = block.get('isActive', False)
+    
+    return SessionData(
+        session_id=block['id'],
+        start_time=start_time,
+        end_time=end_time,
+        total_tokens=total_tokens,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost_usd=cost_usd,
+        is_active=is_active
+    )
+```
+
+**3. Inteligentna strategia pobierania danych (linie 153-179):**
+```python
+# Określanie optymalnej daty dla parametru -s
+def determine_fetch_strategy(self, config: dict, billing_start_day: int):
+    sub_start_date = get_subscription_period_start(billing_start_day)
+    sub_start_date_str = sub_start_date.strftime('%Y-%m-%d')
+    
+    need_full_rescan = config.get("force_recalculate", False)
+    need_max_tokens = not config.get("max_tokens") or need_full_rescan
+    need_monthly_recalc = need_full_rescan or config.get("monthly_meta", {}).get("period_start") != sub_start_date_str
+    
+    if need_full_rescan:
+        return None  # Pobierz wszystko
+    elif need_monthly_recalc:
+        return sub_start_date.strftime('%Y%m%d')
+    else:
+        # Incremental: dane z ostatniego tygodnia
+        last_check = config.get("last_incremental_update")
+        if last_check:
+            since_date = datetime.strptime(last_check, '%Y-%m-%d') - timedelta(days=2)
+        else:
+            since_date = datetime.now() - timedelta(days=7)
+        return since_date.strftime('%Y%m%d')
+```
+
+**4. Obsługa okresów rozliczeniowych (linie 111-118):**
+```python
+def get_subscription_period_start(start_day: int) -> date:
+    today = date.today()
+    if today.day >= start_day:
+        return today.replace(day=start_day)
+    else:
+        first_day_of_current_month = today.replace(day=1)
+        last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
+        return last_day_of_previous_month.replace(day=min(start_day, last_day_of_previous_month.day))
+```
+
+**5. Cache i główna pętla (linie 280-285):**
+```python
+# W głównej pętli demona:
+if time.time() - last_fetch_time > config_instance.CCUSAGE_FETCH_INTERVAL_SECONDS:
+    fetched_data = run_ccusage(billing_period_fetch_since)
+    if fetched_data and fetched_data.get("blocks"):
+        cached_data = fetched_data
+    last_fetch_time = time.time()
+```
+
+**6. Prawidłowa detekcja aktywnych sesji (linie 287-295):**
+```python
+def find_active_session(blocks: List[Dict], now_utc: datetime) -> Optional[Dict]:
+    for block in blocks:
+        if block.get("isGap", False): 
+            continue
+        start_time = parse_utc_time(block["startTime"])
+        end_time = parse_utc_time(block["endTime"])
+        if start_time <= now_utc <= end_time:
+            return block
+    return None
+```
+
+##### Zadania Implementacyjne
+
+**Testy do napisania PRZED implementacją (TDD):**
+
+- [ ] **(RED)** `test_run_ccusage_with_since_parameter` - sprawdza czy parametr `-s` jest prawidłowo przekazywany
+- [ ] **(RED)** `test_parse_ccusage_block_with_nested_tokens` - sprawdza parsowanie zagnieżdżonych tokenCounts
+- [ ] **(RED)** `test_subscription_period_calculation` - testuje obliczanie początku okresu rozliczeniowego
+- [ ] **(RED)** `test_incremental_fetch_strategy` - testuje wybór strategii pobierania danych
+- [ ] **(RED)** `test_active_session_detection_by_time_range` - testuje detekcję aktywnych sesji
+- [ ] **(RED)** `test_processed_sessions_tracking` - testuje śledzenie przetworzonych sesji
+- [ ] **(RED)** `test_max_tokens_persistence` - testuje zapisywanie i odczyt max_tokens
+- [ ] **(RED)** `test_cache_expiration_logic` - testuje logikę wygasania cache
+
+**Implementacja:**
+
+- [ ] **(GREEN)** Przepisać `run_ccusage()` zgodnie z oryginalną implementacją
+- [ ] **(GREEN)** Poprawić `_parse_ccusage_block()` na prawidłowe nazwy pól i strukturę
+- [ ] **(GREEN)** Dodać `get_subscription_period_start()` i logikę okresów
+- [ ] **(GREEN)** Zaimplementować inteligentną strategię pobierania z parametrem `-s`
+- [ ] **(GREEN)** Dodać cache danych z 10-sekundowym interwałem
+- [ ] **(GREEN)** Zaimplementować śledzenie processed_sessions
+- [ ] **(GREEN)** Dodać persystencję max_tokens i last_incremental_update
+- [ ] **(GREEN)** Poprawić detekcję aktywnych sesji na sprawdzanie zakresu czasu
+
+**Refaktoryzacja istniejących testów:**
+
+- [ ] **(REFACTOR)** Zaktualizować mocki w testach aby zwracały prawidłową strukturę ccusage
+- [ ] **(REFACTOR)** Poprawić asercje testów aby sprawdzały prawidłowe pola
+- [ ] **(REFACTOR)** Dodać testy integracyjne z prawdziwymi danymi JSON
+- [ ] **(REFACTOR)** Usunąć testy oparte na nieprawidłowych założeniach (5-minutowe okno)
+
+##### Uzasadnienie Wymagania
+
+Oryginalna implementacja w `claude_monitor.py` została:
+- **Przetestowana w praktyce** przez długi okres użytkowania
+- **Zoptymalizowana pod kątem wydajności** - minimalizuje wywołania ccusage
+- **Zaprojektowana do obsługi błędów** - graceful degradation przy problemach z ccusage
+- **Dostosowana do specyfiki Claude API** - prawidłowe rozróżnianie stanów sesji
+- **Zgodna z rzeczywistą strukturą danych** zwracanych przez ccusage
+
+Uproszczona implementacja w demonie wprowadza regresję funkcjonalności i może prowadzić do:
+- Nieprawidłowych obliczeń kosztów (wielokrotne liczenie tych samych sesji)
+- Problemów z wydajnością przy dużej ilości danych historycznych
+- Nieprawidłowego śledzenia aktywnych sesji
+- Błędów parsowania danych z ccusage
+- Utraty danych przy błędach ccusage
+
+**Status:** ⚠️ **WYMAGA REFAKTORYZACJI** - obecna implementacja `data_collector.py` musi zostać przepisana zgodnie z oryginalną logiką z pełnym zestawem testów TDD.
+
 ### Faza 3: Refaktoryzacja Klienta
 
 #### Zadanie 3.1: Implementacja data reader
