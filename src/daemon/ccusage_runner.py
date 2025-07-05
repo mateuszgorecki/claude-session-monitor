@@ -43,8 +43,14 @@ def run_ccusage_direct(since_date: Optional[str] = None) -> Dict:
         cmd = f"{' '.join(cmd_parts)} > {tmp_path} 2>/dev/null"
         
         # Execute using os.system (doesn't fork)
-        logger.debug(f"Running command: {cmd}")
-        exit_code = os.system(cmd)
+        logger.info(f"Running command: {cmd}")
+        
+        # Try with explicit shell
+        shell_cmd = f"/bin/sh -c '{cmd}'"
+        logger.info(f"Shell command: {shell_cmd}")
+        
+        exit_code = os.system(shell_cmd)
+        logger.info(f"Command exit code: {exit_code}")
         
         if exit_code != 0:
             logger.error(f"ccusage command failed with exit code: {exit_code}")
