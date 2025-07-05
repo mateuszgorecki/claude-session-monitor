@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identification -->
+    <key>Label</key>
+    <string>com.claude.monitor.daemon</string>
+    
+    <!-- Program execution -->
+    <key>Program</key>
+    <string>/usr/bin/env</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>__DAEMON_PATH__/run_daemon.py</string>
+        <string>--start-day</string>
+        <string>__BILLING_START_DAY__</string>
+        <string>--interval</string>
+        <string>10</string>
+        <string>--time-alert</string>
+        <string>30</string>
+        <string>--inactivity-alert</string>
+        <string>10</string>
+        <string>--sessions</string>
+        <string>50</string>
+        <string>--timezone</string>
+        <string>Europe/Warsaw</string>
+    </array>
+    
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>__DAEMON_PATH__</string>
+    
+    <!-- Automatic startup configuration -->
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <!-- Keep daemon running -->
+    <key>KeepAlive</key>
+    <true/>
+    
+    <!-- Restart policy -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>__USER_HOME__</string>
+        <key>LANG</key>
+        <string>en_US.UTF-8</string>
+    </dict>
+    
+    <!-- Logging configuration -->
+    <key>StandardOutPath</key>
+    <string>__USER_HOME__/.config/claude-monitor/daemon.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>__USER_HOME__/.config/claude-monitor/daemon.error.log</string>
+    
+    <!-- Resource limits -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>1024</integer>
+        <key>NumberOfProcesses</key>
+        <integer>10</integer>
+    </dict>
+    
+    <!-- Throttling configuration -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    
+    <!-- Session type -->
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    
+    <!-- Exit timeout -->
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+    
+    <!-- Nice level -->
+    <key>Nice</key>
+    <integer>1</integer>
+    
+    <!-- Low priority background process -->
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

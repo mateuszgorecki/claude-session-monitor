@@ -1,3 +1,71 @@
+####################### 2025-07-05, 13:59:00
+## Task: iOS Widget Data Synchronization Issues Resolution
+**Date:** 2025-07-05
+**Status:** ✅ Success - Widget Data Access Fixed
+
+### 1. Summary
+* **Problem:** Widget pokazywał błąd "Data is X minutes old" mimo aktualnych danych w systemie - problem z synchronizacją iCloud i sprawdzaniem wieku danych.
+* **Solution:** Zmieniono logikę sprawdzania wieku danych z file modification date na wewnętrzny timestamp JSON oraz ulepszonо skrypt synchronizacji z wymuszaniem uploadу do iCloud.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Używanie wewnętrznego `last_update` timestampu zamiast file modification date eliminuje problemy z synchronizacją iCloud, gdzie plik może mieć starą datę modyfikacji mimo aktualnej zawartości.
+* **Library/Dependency Choices:** Pozostano przy istniejącej architekturze opartej na FileManager.iCloud() i JSON, ale zmieniono logikę walidacji wieku danych.
+* **Method/Algorithm Choices:** Widget sprawdza now wiek danych porównując `new Date()` z `new Date(tempData.last_update)` zamiast z `fm.modificationDate()`, co jest bardziej niezawodne dla synchronizacji iCloud.
+* **Testing Strategy:** Problem został zidentyfikowany poprzez analizę różnic między file modification time (13:54) a wewnętrznym timestampem JSON (11:54 UTC), co pokazało że synchronizacja iCloud nie zachowuje oryginalnych dat modyfikacji plików.
+* **Other Key Decisions:** Dodano `touch` do skryptu sync po kopiowaniu pliku, aby wymusić upload do iCloud oraz instrukcje dla użytkowników jak wymusić sync na iOS przez Files app.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. **Analiza problemu:** Zidentyfikowano że plik w kontenerze Scriptable ma starszą datę modyfikacji (13:53) niż plik w kontenerze daemona (13:54)
+  2. **Naprawa widget logic:** Zmieniono `claude_widget.js` linie 109-120 aby używać `tempData.last_update` zamiast `fm.modificationDate(dataPath)` 
+  3. **Usprawnienie sync script:** Dodano `touch "$DEST_FILE"` po kopiowaniu aby wymusić iCloud upload
+  4. **Dodanie instrukcji:** Dodano do `sync_to_scriptable.sh` sekcję z instrukcjami jak wymusić sync na iOS przez Files app
+  5. **Test rozwiązania:** Zweryfikowano że nowa logika poprawnie sprawdza wiek danych na podstawie JSON timestamp
+* **Challenges Encountered:**
+  1. **iCloud sync delay issue:** iCloud Drive może zachowywać stare modification dates dla zsynchronizowanych plików
+  2. **Widget validation logic:** Widget polegał na file modification date zamiast na aktualnym wieku danych w JSON
+  3. **Cross-platform file timestamps:** Różnice w jak macOS i iOS obsługują modification dates dla plików iCloud
+* **Key Implementation Details:**
+  - Widget teraz parsuje JSON i sprawdza `last_update` przed walidacją wieku danych
+  - Skrypt sync wymusza iCloud upload przez `touch` po skopiowaniu pliku
+  - Dodano instrukcje troubleshooting dla użytkowników iOS
+
+### 4. Verification Results
+* **Before Fix:** Widget pokazywał "Data is 11 minutes old" mimo aktualnych danych
+* **After Fix:** Widget używa wewnętrznego timestampu JSON dla sprawdzania wieku danych
+* **File sync verification:** Skrypt sync działa poprawnie, `touch` wymusza iCloud upload
+* **User guidance added:** Instrukcje jak wymusić sync na iOS przez Files app
+
+### 5. Key Features Fixed
+1. **Widget data validation logic** - Używa `last_update` z JSON zamiast file modification date
+2. **iCloud sync forcing** - Skrypt sync używa `touch` aby wymusić upload
+3. **User guidance enhancement** - Dodane instrukcje troubleshooting dla problemów z synchronizacją iOS
+4. **Cross-platform timestamp handling** - Rozwiązano różnice w obsłudze dat modyfikacji między macOS i iOS
+
+### 6. Production Impact
+* **Widget reliability:** Widget teraz poprawnie wykrywa świeże dane niezależnie od iCloud sync delays
+* **User experience:** Jasne instrukcje jak wymusić synchronizację gdy potrzebna
+* **Cross-device sync:** Ulepszony proces synchronizacji z wymuszaniem iCloud upload
+* **Error messaging:** Widget pokazuje dokładne informacje o wieku danych bazując na rzeczywistym timestamp
+
+### 7. Architecture Benefits
+**iOS App Sandboxing Compatibility:**
+- Widget poprawnie obsługuje ograniczenia sandboxingu iOS
+- Dane są niezawodnie dostępne w kontenerze Scriptable
+- Synchronizacja działa mimo różnic w file system handling między macOS i iOS
+
+**Improved Data Validation:**
+- Sprawdzanie wieku danych bazuje na rzeczywistej zawartości, nie file metadata
+- Eliminuje false positive errors z powodu iCloud sync delays
+- Bardziej niezawodne wykrywanie czy daemon działa
+
+**Enhanced User Experience:**
+- Widget pokazuje aktualne dane nawet gdy file dates są stare
+- Jasne instrukcje troubleshooting dla problemów synchronizacji
+- Automatyczne wymuszanie iCloud upload w sync script
+
+**Final Status:** 🎯 **iOS WIDGET DATA ACCESS FIXED** - Widget teraz niezawodnie sprawdza wiek danych używając JSON timestamp, sync script wymusza iCloud upload, a użytkownicy mają instrukcje troubleshooting dla problemów synchronizacji.
+
 ####################### 2025-07-05, 18:30
 ## Task: Phase 4 - Widget Scriptable Implementation  
 **Date:** 2025-07-05
@@ -1157,3 +1225,156 @@ avg = sessions_left / days_remaining  # = 2.23 ✅
 - **Configuration propagation** - billing_start_day flows correctly through all components
 
 **Final Status:** 🎯 **BILLING SYSTEM FIXED** - All billing period calculations now accurate and user-configurable. Days remaining and session averages display correctly, providing users with reliable billing period tracking and actionable usage guidance.
+
+####################### 2025-07-05, 15:15:00
+## Task: Phase 5.1 - Daemon Installation Scripts Implementation
+**Date:** 2025-07-05
+**Status:** ✅ Success - Complete Installation System
+
+### 1. Summary
+* **Problem:** Implement macOS daemon installation scripts for automatic startup, system integration, and easy deployment of the Claude monitoring daemon using launchd.
+* **Solution:** Created comprehensive installation and uninstallation scripts with launchd plist configuration, user-friendly interfaces, and complete system integration.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Used launchd for native macOS daemon management, providing proper system integration with automatic startup, resource limits, and process monitoring. Per-user installation avoids requiring root privileges while providing full functionality.
+* **Library/Dependency Choices:** Shell scripts with bash for maximum compatibility and no external dependencies. Standard macOS tools (launchctl, plutil) ensure reliable operation across macOS versions.
+* **Method/Algorithm Choices:** Template-based plist configuration with placeholder replacement allows customization while maintaining proper XML structure. Multi-option cleanup strategy gives users control over data retention during uninstallation.
+* **Testing Strategy:** Comprehensive syntax validation, import testing, and component verification ensure scripts work correctly before deployment. Real-world simulation tests verify integration points.
+* **User Experience Strategy:** Interactive prompts with sensible defaults, colored output for clarity, comprehensive verification steps, and detailed help messages guide users through installation process.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. **Task 5.1.1** - Created launchd plist configuration (config/com.claude.monitor.daemon.plist) with proper service definition, environment setup, and resource limits
+  2. **Task 5.1.2** - Implemented installation script (scripts/install_daemon.sh) with dependency checking, user configuration, directory setup, and service loading
+  3. **Task 5.1.3** - Created uninstallation script (scripts/uninstall_daemon.sh) with flexible data cleanup options and complete removal verification
+  4. **Task 5.1.4** - Comprehensive testing of script syntax, plist validation, directory structure, and daemon integration
+
+* **Challenges Encountered:**
+  1. **macOS security requirements** - Designed per-user installation to avoid requiring root privileges while providing full daemon functionality
+  2. **Configuration flexibility** - Implemented template system for customizable daemon parameters (billing day, sessions, timezone)
+  3. **Data preservation options** - Created multi-level cleanup strategies allowing users to preserve data during uninstallation
+  4. **Cross-version compatibility** - Used standard macOS tools and POSIX shell constructs for broad compatibility
+
+* **Key Implementation Details:**
+  - **Plist template** with placeholder replacement for customization
+  - **Dependency validation** checking Python 3, ccusage, and optional uv package manager
+  - **Interactive configuration** with input validation and sensible defaults
+  - **Comprehensive logging** with colored output and status indicators
+  - **Verification steps** confirming successful installation and proper daemon operation
+
+### 4. Key Features Implemented
+
+#### 4.1 Launchd Plist Configuration
+1. **Service definition** - Proper daemon identification and process management
+2. **Automatic startup** - RunAtLoad and KeepAlive for persistent operation
+3. **Environment setup** - PATH configuration and locale settings
+4. **Resource limits** - File handles, process limits, and nice priority
+5. **Logging configuration** - Separate stdout and stderr log files
+
+#### 4.2 Installation Script Features
+1. **Dependency checking** - Validates Python 3, ccusage, and optional uv
+2. **Interactive configuration** - Prompts for billing day, sessions, timezone
+3. **Directory setup** - Creates config, LaunchAgents, and iCloud directories
+4. **Service installation** - Template processing and launchctl loading
+5. **Verification testing** - Confirms daemon starts and data files are created
+
+#### 4.3 Uninstallation Script Features
+1. **Service stopping** - Graceful daemon shutdown via launchctl
+2. **Flexible cleanup** - Four levels of data removal (keep all, logs only, data, everything)
+3. **Verification steps** - Confirms complete removal and client detection
+4. **User guidance** - Clear instructions for manual cleanup if needed
+
+#### 4.4 User Experience Excellence
+1. **Colored output** - Clear status indicators with info, success, warning, error colors
+2. **Input validation** - Proper validation of billing days, session counts, and configuration
+3. **Error handling** - Comprehensive error checking with helpful error messages
+4. **Documentation** - Detailed help text and next steps guidance
+
+### 5. Production Readiness Assessment
+
+#### 5.1 ✅ Installation Quality: PRODUCTION READY
+- **Dependency validation** - All required tools checked before installation
+- **Configuration flexibility** - User-customizable parameters with validation
+- **Error handling** - Comprehensive error checking with clear messages
+- **System integration** - Proper launchd integration with automatic startup
+
+#### 5.2 ✅ User Experience: PRODUCTION READY
+- **Interactive setup** - Guided installation with sensible defaults
+- **Clear feedback** - Colored output and status indicators throughout process
+- **Verification steps** - Confirms installation success and provides troubleshooting info
+- **Flexible uninstallation** - Multiple cleanup options respecting user data
+
+#### 5.3 ✅ System Integration: PRODUCTION READY
+- **macOS native** - Uses launchd for proper daemon management
+- **Security conscious** - Per-user installation avoiding root requirements
+- **Resource management** - Proper limits and priority settings
+- **Cross-version compatible** - Standard tools ensuring broad macOS support
+
+### 6. Complete Installation System Achievement
+
+The daemon installation scripts complete the system deployment infrastructure:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              COMPLETE DEPLOYMENT SYSTEM                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐  │
+│  │ install_daemon  │    │    launchd      │    │ uninstall   │  │
+│  │     .sh         │    │  integration    │    │ _daemon.sh  │  │
+│  │                 │    │                 │    │             │  │
+│  │ ✅ Dependency  │    │ ✅ Auto-start  │    │ ✅ Graceful │  │
+│  │    validation   │    │ ✅ Keep-alive  │    │    shutdown  │  │
+│  │ ✅ User config │    │ ✅ Logging     │    │ ✅ Data     │  │
+│  │ ✅ Directory   │    │ ✅ Resource    │    │    options   │  │
+│  │    setup        │    │    limits      │    │ ✅ Complete │  │
+│  │ ✅ Service     │    │ ✅ Background  │    │    removal   │  │
+│  │    loading      │    │    operation   │    │             │  │
+│  └─────────────────┘    └─────────────────┘    └─────────────┘  │
+│           │                       │                       │     │
+│           │                       │                       │     │
+│           ▼                       ▼                       ▼     │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │        SYSTEM-INTEGRATED DAEMON SERVICE                    │ │
+│  │   ✅ Automatic startup at login                           │ │
+│  │   ✅ Background operation with proper resource limits     │ │
+│  │   ✅ Configurable parameters (billing, sessions, etc.)   │ │
+│  │   ✅ Comprehensive logging and error handling             │ │
+│  │   ✅ iCloud sync for cross-device functionality           │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 7. Task 5.1 Completion Status
+
+**🎯 TASK 5.1 COMPLETE** - Daemon installation scripts fully implemented and production-ready:
+
+- ✅ **Launchd plist configuration** - Complete service definition with customizable parameters
+- ✅ **Installation script** - Interactive setup with dependency checking and verification
+- ✅ **Uninstallation script** - Flexible removal with data preservation options
+- ✅ **System integration** - Native macOS daemon management with automatic startup
+- ✅ **Testing verification** - All components tested and validated for production use
+
+**Ready For User Deployment:**
+- Users can install daemon with simple `./scripts/install_daemon.sh` command
+- Automatic startup ensures continuous monitoring without user intervention
+- Easy uninstallation preserves user data while completely removing daemon
+- Complete system integration provides native macOS experience
+
+### 8. Architecture Impact & Benefits
+
+#### 8.1 System Deployment Excellence
+The installation scripts provide professional-grade deployment:
+- **Zero-configuration startup** - Daemon runs automatically after installation
+- **User-friendly installation** - Interactive setup with helpful prompts and validation
+- **Flexible management** - Easy installation, uninstallation, and configuration updates
+- **Native integration** - Proper macOS system service behavior
+
+#### 8.2 Production Deployment Ready
+- **Enterprise-quality scripts** - Comprehensive error handling and user feedback
+- **Security-conscious design** - Per-user installation without requiring root privileges
+- **Data preservation** - Respects user data during uninstallation with multiple options
+- **Cross-version compatibility** - Works across different macOS versions using standard tools
+
+**Final Status:** 🎯 **TASK 5.1 PRODUCTION READY** - Complete daemon installation system with 3 deployment scripts, comprehensive testing, and native macOS integration. The Claude monitoring daemon can now be easily installed, managed, and uninstalled by end users with professional-grade tooling.
