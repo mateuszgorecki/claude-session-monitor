@@ -251,7 +251,26 @@ class DataCollector:
     
     def run_ccusage(self, since_date: str = None) -> dict:
         """Execute ccusage command with optional since parameter."""
-        command = ["ccusage", "blocks", "-j"]
+        # Find node executable
+        node_path = None
+        for path in ["/usr/local/bin/node", "/opt/homebrew/bin/node", 
+                     os.path.expanduser("~/.nvm/versions/node/v20.5.0/bin/node")]:
+            if os.path.exists(path):
+                node_path = path
+                break
+        
+        if not node_path:
+            self.logger.error("Node.js not found, cannot run ccusage")
+            return {"blocks": []}
+        
+        # Find ccusage script
+        ccusage_path = os.path.expanduser("~/.nvm/versions/node/v20.5.0/lib/node_modules/ccusage/dist/index.js")
+        if not os.path.exists(ccusage_path):
+            self.logger.error(f"ccusage script not found at {ccusage_path}")
+            return {"blocks": []}
+        
+        # Run ccusage directly through node
+        command = [node_path, ccusage_path, "blocks", "-j"]
         if since_date:
             command.extend(["-s", since_date])
         
@@ -292,10 +311,6 @@ class DataCollector:
         })
         
         try:
-            # Check if ccusage is available before attempting to run it
-            if not self._check_ccusage_available(env):
-                self.logger.error("ccusage command not found in PATH")
-                return {"blocks": []}
             
             result = subprocess.run(
                 command, 
