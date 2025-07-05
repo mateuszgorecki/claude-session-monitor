@@ -8,13 +8,11 @@
     
     <!-- Program execution -->
     <key>Program</key>
-    <string>/usr/bin/env</string>
+    <string>__DAEMON_PATH__/scripts/daemon_wrapper.sh</string>
     
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/env</string>
-        <string>python3</string>
-        <string>__DAEMON_PATH__/run_daemon.py</string>
+        <string>__DAEMON_PATH__/scripts/daemon_wrapper.sh</string>
         <string>--start-day</string>
         <string>__BILLING_START_DAY__</string>
         <string>--interval</string>
@@ -41,27 +39,11 @@
     <key>KeepAlive</key>
     <true/>
     
-    <!-- Restart policy - Use Interactive for GUI access -->
-    <key>ProcessType</key>
-    <string>Interactive</string>
-    
-    <!-- Environment variables -->
+    <!-- Environment variables (minimal, rest handled by wrapper) -->
     <key>EnvironmentVariables</key>
     <dict>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:__USER_HOME__/.nvm/versions/node/v20.5.0/bin</string>
         <key>HOME</key>
         <string>__USER_HOME__</string>
-        <key>LANG</key>
-        <string>en_US.UTF-8</string>
-        <key>DISPLAY</key>
-        <string>:0</string>
-        <key>USER</key>
-        <string>__USER_NAME__</string>
-        <key>TMPDIR</key>
-        <string>/tmp</string>
-        <key>XPC_SERVICE_NAME</key>
-        <string>com.claude.monitor.daemon</string>
     </dict>
     
     <!-- Logging configuration -->
@@ -88,6 +70,10 @@
     <key>LimitLoadToSessionType</key>
     <string>Aqua</string>
     
+    <!-- Process type -->
+    <key>ProcessType</key>
+    <string>Standard</string>
+    
     <!-- Exit timeout -->
     <key>ExitTimeOut</key>
     <integer>30</integer>
@@ -100,20 +86,5 @@
     <key>LowPriorityIO</key>
     <true/>
     
-    <!-- Enable GUI access -->
-    <key>EnableGlobbing</key>
-    <true/>
-    
-    <!-- Enable Transactions -->
-    <key>EnableTransactions</key>
-    <true/>
-    
-    <!-- GUI Access - run in user session -->
-    <key>SessionCreate</key>
-    <true/>
-    
-    <!-- Wait for GUI context -->
-    <key>LaunchOnlyOnce</key>
-    <false/>
 </dict>
 </plist>
