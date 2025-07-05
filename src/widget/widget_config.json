@@ -1,0 +1,90 @@
+{
+  "version": "1.0.0",
+  "description": "Configuration for Claude Session Monitor Scriptable Widget",
+  "theme": "auto",
+  "displayMetrics": {
+    "sessions": true,
+    "cost": true,
+    "daysRemaining": true,
+    "activeSession": true,
+    "lastUpdate": true,
+    "projections": true,
+    "maxTokens": false,
+    "averageSessionsPerDay": false
+  },
+  "widgetSizes": {
+    "small": {
+      "metrics": ["sessions", "cost"],
+      "maxLines": 2,
+      "compactMode": true
+    },
+    "medium": {
+      "metrics": ["sessions", "cost", "daysRemaining", "activeSession"],
+      "maxLines": 4,
+      "compactMode": false
+    },
+    "large": {
+      "metrics": ["sessions", "cost", "daysRemaining", "activeSession", "projections", "lastUpdate"],
+      "maxLines": 6,
+      "compactMode": false
+    }
+  },
+  "refreshInterval": 1,
+  "dataAgeThresholdMinutes": 5,
+  "colors": {
+    "light": {
+      "primary": "#007AFF",
+      "secondary": "#34C759",
+      "warning": "#FF9500",
+      "error": "#FF3B30",
+      "text": "#000000",
+      "background": "#FFFFFF",
+      "cardBackground": "#F2F2F7",
+      "progressBarFilled": "#007AFF",
+      "progressBarEmpty": "#E5E5EA"
+    },
+    "dark": {
+      "primary": "#0A84FF",
+      "secondary": "#30D158",
+      "warning": "#FF9F0A",
+      "error": "#FF453A",
+      "text": "#FFFFFF",
+      "background": "#000000",
+      "cardBackground": "#1C1C1E",
+      "progressBarFilled": "#0A84FF",
+      "progressBarEmpty": "#48484A"
+    }
+  },
+  "formatting": {
+    "currency": {
+      "symbol": "$",
+      "decimals": 2,
+      "showCents": true
+    },
+    "numbers": {
+      "thousandsSeparator": ",",
+      "compactThreshold": 1000
+    },
+    "time": {
+      "showSeconds": false,
+      "use24Hour": false,
+      "showRelativeTime": true
+    }
+  },
+  "behavior": {
+    "tapAction": "openApp",
+    "showNotifications": true,
+    "autoRefresh": true,
+    "offlineGracePeriod": 10
+  },
+  "advanced": {
+    "debugMode": false,
+    "logLevel": "info",
+    "enablePerformanceMetrics": false,
+    "fallbackValues": {
+      "totalMonthlySessions": 50,
+      "costLimit": 20.0,
+      "sessionDurationLimit": 300
+    }
+  }
+}
