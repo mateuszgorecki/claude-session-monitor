@@ -26,7 +26,8 @@ class TestNotificationManager(unittest.TestCase):
         self.assertIsNotNone(nm.logger)
 
     @patch('subprocess.run')
-    def test_send_notification_with_terminal_notifier_success(self, mock_run):
+    @patch.object(NotificationManager, '_check_gui_available', return_value=True)
+    def test_send_notification_with_terminal_notifier_success(self, mock_gui, mock_run):
         """Test successful notification sending using terminal-notifier"""
         # Mock successful terminal-notifier execution
         mock_result = MagicMock()
@@ -42,21 +43,24 @@ class TestNotificationManager(unittest.TestCase):
         self.assertTrue(result)
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
-        self.assertIn('terminal-notifier', call_args)
+        # Check if terminal-notifier executable is in the command
+        self.assertTrue(any('terminal-notifier' in arg for arg in call_args))
         self.assertIn('Test Title', call_args)
         self.assertIn('Test Message', call_args)
 
     @patch('subprocess.run')
-    def test_send_notification_fallback_to_osascript(self, mock_run):
+    @patch.object(NotificationManager, '_check_gui_available', return_value=True)
+    def test_send_notification_fallback_to_osascript(self, mock_gui, mock_run):
         """Test fallback to osascript when terminal-notifier fails"""
         # Mock terminal-notifier failure, osascript success
         def side_effect(*args, **kwargs):
-            if 'terminal-notifier' in args[0]:
+            cmd = args[0]
+            if any('terminal-notifier' in str(arg) for arg in cmd):
                 raise FileNotFoundError("terminal-notifier not found")
             else:  # osascript
-                mock_run = MagicMock()
-                mock_run.returncode = 0
-                return mock_run
+                mock_result = MagicMock()
+                mock_result.returncode = 0
+                return mock_result
         
         mock_run.side_effect = side_effect
         
@@ -123,7 +127,8 @@ class TestNotificationManager(unittest.TestCase):
             self.assertEqual(kwargs['notification_type'], NotificationType.ERROR)
 
     @patch('subprocess.run')
-    def test_notification_types_have_different_urgency(self, mock_run):
+    @patch.object(NotificationManager, '_check_gui_available', return_value=True)
+    def test_notification_types_have_different_urgency(self, mock_gui, mock_run):
         """Test that different notification types use appropriate urgency levels"""
         mock_result = MagicMock()
         mock_result.returncode = 0

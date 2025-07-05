@@ -101,7 +101,7 @@ class TestDataCollector(unittest.TestCase):
         """Test handling of ccusage command timeout."""
         mock_run.side_effect = subprocess.TimeoutExpired('ccusage', 30)
         
-        # Verify that RuntimeError is raised
+        # Verify that RuntimeError is raised when no blocks data is returned
         with self.assertRaises(RuntimeError) as context:
             self.collector.collect_data()
         

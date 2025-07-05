@@ -88,14 +88,15 @@ class TestDataCollectorCorrected(unittest.TestCase):
         # Test call with since parameter
         result = self.collector.run_ccusage(since_date="20250615")
         
-        # Verify the command was called with -s parameter
-        expected_command = ['ccusage', 'blocks', '-j', '-s', '20250615']
-        mock_run.assert_called_once_with(
-            expected_command,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        # Verify the command was called with -s parameter (using wrapper script)
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        # Check that wrapper script is used and -s parameter is included
+        self.assertTrue(call_args[0].endswith('ccusage_wrapper.sh'))
+        self.assertIn('blocks', call_args)
+        self.assertIn('-j', call_args)
+        self.assertIn('-s', call_args)
+        self.assertIn('20250615', call_args)
         
         # Verify result
         self.assertEqual(result, self.sample_ccusage_output)
@@ -111,14 +112,14 @@ class TestDataCollectorCorrected(unittest.TestCase):
         # Test call without since parameter
         result = self.collector.run_ccusage(since_date=None)
         
-        # Verify the command was called without -s parameter
-        expected_command = ['ccusage', 'blocks', '-j']
-        mock_run.assert_called_once_with(
-            expected_command,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        # Verify the command was called without -s parameter (using wrapper script)
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        # Check that wrapper script is used and -s parameter is NOT included
+        self.assertTrue(call_args[0].endswith('ccusage_wrapper.sh'))
+        self.assertIn('blocks', call_args)
+        self.assertIn('-j', call_args)
+        self.assertNotIn('-s', call_args)
 
     def test_parse_ccusage_block_with_nested_tokens(self):
         """Test parsing ccusage block with correct nested tokenCounts structure."""

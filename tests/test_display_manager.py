@@ -162,7 +162,8 @@ class TestDisplayManager(unittest.TestCase):
         
         self.assertEqual(stats['sessions_used'], 15)
         self.assertEqual(stats['sessions_left'], 35)
-        self.assertEqual(stats['avg_sessions_per_day'], 1.0)
+        # 35 sessions remaining / 15 days remaining = 2.33 sessions per day
+        self.assertAlmostEqual(stats['avg_sessions_per_day'], 35/15, places=2)
 
     def test_render_active_session_display(self):
         """Test rendering display for active session."""

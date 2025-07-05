@@ -128,11 +128,11 @@ class TestClaudeClient(unittest.TestCase):
         """Test single iteration when no data is available."""
         client = ClaudeClient(data_file_path="/nonexistent/path/monitor_data.json")
         
-        with patch.object(client.display_manager, 'show_error_message') as mock_error:
+        with patch.object(client.display_manager, 'render_daemon_offline_display') as mock_offline:
             result = client.run_single_iteration()
             
             self.assertFalse(result)
-            mock_error.assert_called_once()
+            mock_offline.assert_called_once()
 
     def test_show_daemon_not_running_message(self):
         """Test display of daemon not running message."""

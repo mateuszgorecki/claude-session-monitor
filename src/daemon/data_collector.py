@@ -269,6 +269,9 @@ class DataCollector:
                 timeout=30
             )
             return json.loads(result.stdout)
+        except subprocess.TimeoutExpired as e:
+            self.logger.error(f"ccusage wrapper timed out: {e}")
+            raise
         except Exception as e:
             self.logger.error(f"ccusage wrapper failed: {e}")
             return {"blocks": []}
