@@ -26,6 +26,19 @@ class DataCollector:
         self._consecutive_failures = 0
         self._last_fetch_time = 0
         self._cached_data = {"blocks": []}
+        
+        # Initialize persistent storage for max tokens
+        from shared.file_manager import ConfigFileManager
+        self._config_manager = ConfigFileManager()
+        self._persistent_config = self._config_manager.read_data()
+        
+        # Initialize max_tokens from persistent storage or scan all history
+        if "max_tokens" not in self._persistent_config:
+            self.logger.info("No max_tokens found in config - scanning all historical data...")
+            self._max_tokens_per_session = self._scan_all_historical_data_for_max_tokens()
+        else:
+            self._max_tokens_per_session = self._persistent_config.get("max_tokens", 35000)
+            self.logger.info(f"Loaded max_tokens from config: {self._max_tokens_per_session:,}")
     
     def collect_data(self) -> MonitoringData:
         """
@@ -92,7 +105,16 @@ class DataCollector:
                 elif session.end_time and (now - session.end_time).total_seconds() < 300:  # 5 minutes
                     active_sessions += 1
             
-            max_tokens = max([s.total_tokens for s in sessions], default=0)
+            # Calculate max tokens from current sessions
+            current_session_max = max([s.total_tokens for s in sessions], default=0)
+            
+            # Update persistent max_tokens if we found a higher value
+            if current_session_max > self._max_tokens_per_session:
+                self._max_tokens_per_session = current_session_max
+                self._save_max_tokens(current_session_max)
+                self.logger.info(f"New maximum tokens found: {current_session_max:,}")
+            
+            max_tokens = self._max_tokens_per_session
             
             # Update success tracking
             self._last_successful_update = now
@@ -231,11 +253,55 @@ class DataCollector:
         command = ["ccusage", "blocks", "-j"]
         if since_date:
             command.extend(["-s", since_date])
+        
+        # Set up environment for GUI access
+        env = os.environ.copy()
+        env.update({
+            'PATH': '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin',
+            'HOME': os.path.expanduser('~'),
+            'LANG': 'en_US.UTF-8',
+            'DISPLAY': ':0',
+            'USER': os.getenv('USER', 'unknown'),
+            'TMPDIR': '/tmp'
+        })
+        
         try:
-            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            # Check if ccusage is available before attempting to run it
+            if not self._check_ccusage_available():
+                self.logger.error("ccusage command not found in PATH")
+                return {"blocks": []}
+            
+            result = subprocess.run(
+                command, 
+                capture_output=True, 
+                text=True, 
+                check=True,
+                env=env,
+                timeout=30
+            )
             return json.loads(result.stdout)
-        except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError):
+        except subprocess.TimeoutExpired:
+            self.logger.error("ccusage command timed out")
             return {"blocks": []}
+        except (FileNotFoundError, subprocess.CalledProcessError, json.JSONDecodeError) as e:
+            self.logger.error(f"ccusage command failed: {e}")
+            return {"blocks": []}
+    
+    def _check_ccusage_available(self) -> bool:
+        """
+        Check if ccusage command is available in PATH.
+        
+        Returns:
+            bool: True if ccusage is available, False otherwise
+        """
+        import shutil
+        
+        try:
+            # Check if ccusage is in PATH
+            return shutil.which("ccusage") is not None
+        except Exception as e:
+            self.logger.warning(f"Error checking ccusage availability: {e}")
+            return False
     
     def get_subscription_period_start(self, start_day: int) -> date:
         """Calculate billing period start date."""
@@ -295,3 +361,117 @@ class DataCollector:
     def should_fetch_new_data(self) -> bool:
         """Check if new data should be fetched based on cache expiration."""
         return time.time() - self._last_fetch_time > self.config.ccusage_fetch_interval_seconds
+    
+    def _save_max_tokens(self, max_tokens: int):
+        """Save max tokens to persistent configuration."""
+        try:
+            # Update persistent config with new max_tokens
+            self._persistent_config["max_tokens"] = max_tokens
+            self._persistent_config["last_max_tokens_scan"] = datetime.now().strftime('%Y-%m-%d')
+            
+            # Save to config file
+            self._config_manager.save_config(self._persistent_config)
+            self.logger.debug(f"Saved max_tokens {max_tokens:,} to persistent config")
+        except Exception as e:
+            self.logger.error(f"Failed to save max_tokens to config: {e}")
+    
+    def get_max_tokens_per_session(self) -> int:
+        """Get current maximum tokens per session."""
+        return self._max_tokens_per_session
+    
+    def update_max_tokens_if_higher(self, current_tokens: int) -> bool:
+        """
+        Update max tokens if current value is higher.
+        This is called during active session monitoring for real-time updates.
+        
+        Args:
+            current_tokens: Current token count from active session
+            
+        Returns:
+            True if max_tokens was updated, False otherwise
+        """
+        if current_tokens > self._max_tokens_per_session:
+            self._max_tokens_per_session = current_tokens
+            self._save_max_tokens(current_tokens)
+            return True
+        return False
+    
+    def force_recalculate_max_tokens(self):
+        """Force recalculation of max tokens from historical data."""
+        try:
+            # Fetch all historical data
+            data = self.run_ccusage()  # No since_date = fetch everything
+            if not data or "blocks" not in data:
+                self.logger.warning("No data available for max tokens recalculation")
+                return
+            
+            blocks = data.get('blocks', [])
+            all_tokens = [b.get("totalTokens", 0) for b in blocks if not b.get("isGap", False)]
+            
+            if all_tokens:
+                historical_max = max(all_tokens)
+                if historical_max > self._max_tokens_per_session:
+                    self._max_tokens_per_session = historical_max
+                    self._save_max_tokens(historical_max)
+                    self.logger.info(f"Recalculated max_tokens: {historical_max:,}")
+                else:
+                    self.logger.info(f"Current max_tokens {self._max_tokens_per_session:,} is still valid")
+            else:
+                self.logger.warning("No token data found in historical blocks")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to recalculate max_tokens: {e}")
+    
+    def _scan_all_historical_data_for_max_tokens(self) -> int:
+        """
+        Scan all historical ccusage data to find maximum tokens.
+        This is called on first run when no max_tokens is saved.
+        
+        Returns:
+            Maximum tokens found in all historical data, or 35000 as fallback
+        """
+        try:
+            self.logger.info("Scanning all historical data for maximum tokens...")
+            
+            # Fetch ALL historical data (no since_date parameter)
+            data = self.run_ccusage()
+            if not data or "blocks" not in data:
+                self.logger.warning("No historical data available, using default max_tokens")
+                return 35000
+            
+            blocks = data.get('blocks', [])
+            self.logger.info(f"Found {len(blocks)} total blocks in historical data")
+            
+            # Extract all token counts from non-gap blocks
+            all_tokens = []
+            for block in blocks:
+                if block.get("isGap", False):
+                    continue
+                total_tokens = block.get("totalTokens", 0)
+                if total_tokens > 0:
+                    all_tokens.append(total_tokens)
+            
+            if all_tokens:
+                historical_max = max(all_tokens)
+                self.logger.info(f"Historical scan complete: found {len(all_tokens)} sessions")
+                self.logger.info(f"Maximum tokens from all history: {historical_max:,}")
+                
+                # Save this max_tokens to persistent config
+                self._save_max_tokens(historical_max)
+                
+                return historical_max
+            else:
+                self.logger.warning("No token data found in historical blocks, using default")
+                # Still save the default to avoid future scans
+                self._save_max_tokens(35000)
+                return 35000
+                
+        except Exception as e:
+            self.logger.error(f"Failed to scan historical data for max_tokens: {e}")
+            self.logger.info("Using default max_tokens value: 35000")
+            # Save default to avoid repeating failed scan
+            try:
+                self._save_max_tokens(35000)
+            except Exception:
+                pass
+            return 35000

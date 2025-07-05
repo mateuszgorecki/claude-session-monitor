@@ -1,6 +1,7 @@
 """NotificationManager for macOS system notifications"""
 import subprocess
 import logging
+import os
 from enum import Enum
 from typing import Optional
 
@@ -18,6 +19,7 @@ class NotificationManager:
     def __init__(self):
         """Initialize notification manager"""
         self.logger = logging.getLogger(__name__)
+        self._gui_available = None  # Cache GUI availability check
     
     def send_notification(self, title: str, message: str, notification_type: NotificationType) -> bool:
         """
@@ -32,6 +34,11 @@ class NotificationManager:
             bool: True if notification was sent successfully, False otherwise
         """
         try:
+            # Check if GUI is available before attempting notifications
+            if not self._check_gui_available():
+                self.logger.warning("GUI not available, skipping notification")
+                return False
+            
             # Try terminal-notifier first (more feature-rich)
             if self._send_via_terminal_notifier(title, message, notification_type):
                 return True
@@ -41,6 +48,45 @@ class NotificationManager:
             
         except Exception as e:
             self.logger.error(f"Failed to send notification: {e}")
+            return False
+    
+    def _check_gui_available(self) -> bool:
+        """
+        Check if GUI is available for notifications.
+        
+        Returns:
+            bool: True if GUI is available, False otherwise
+        """
+        if self._gui_available is not None:
+            return self._gui_available
+        
+        try:
+            # Check if we have a display
+            if not os.environ.get('DISPLAY'):
+                self.logger.debug("No DISPLAY environment variable set")
+                self._gui_available = False
+                return False
+            
+            # Test basic GUI access with a lightweight command
+            result = subprocess.run(
+                ['osascript', '-e', 'return "GUI test"'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                self._gui_available = True
+                self.logger.debug("GUI access confirmed")
+                return True
+            else:
+                self.logger.warning(f"GUI access test failed: {result.stderr}")
+                self._gui_available = False
+                return False
+                
+        except Exception as e:
+            self.logger.warning(f"GUI availability check failed: {e}")
+            self._gui_available = False
             return False
     
     def _send_via_terminal_notifier(self, title: str, message: str, notification_type: NotificationType) -> bool:
@@ -55,9 +101,28 @@ class NotificationManager:
         Returns:
             bool: True if successful, False if terminal-notifier unavailable
         """
+        import os
+        
         try:
+            # Try application bundle path first (required for launchd)
+            terminal_notifier_paths = [
+                '/Applications/terminal-notifier.app/Contents/MacOS/terminal-notifier',
+                '/usr/local/bin/terminal-notifier',
+                '/opt/homebrew/bin/terminal-notifier'
+            ]
+            
+            terminal_notifier_path = None
+            for path in terminal_notifier_paths:
+                if os.path.exists(path):
+                    terminal_notifier_path = path
+                    break
+            
+            if not terminal_notifier_path:
+                self.logger.warning("terminal-notifier not found in any expected location")
+                return False
+            
             cmd = [
-                'terminal-notifier',
+                terminal_notifier_path,
                 '-title', title,
                 '-message', message,
                 '-sound', 'default'
@@ -69,11 +134,23 @@ class NotificationManager:
                 # Use critical urgency for errors
                 cmd.extend(['-execute', 'echo "critical notification"'])
             
+            # Set up environment for GUI access
+            env = os.environ.copy()
+            env.update({
+                'PATH': '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin',
+                'HOME': os.path.expanduser('~'),
+                'LANG': 'en_US.UTF-8',
+                'DISPLAY': ':0',
+                'USER': os.getenv('USER', 'unknown'),
+                'TMPDIR': '/tmp'
+            })
+            
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=10,
+                env=env
             )
             
             return result.returncode == 0
@@ -96,17 +173,31 @@ class NotificationManager:
         Returns:
             bool: True if successful, False otherwise
         """
+        import os
+        
         try:
             # AppleScript to display notification
             script = f'''
             display notification "{message}" with title "{title}" sound name "default"
             '''
             
+            # Set up environment for GUI access
+            env = os.environ.copy()
+            env.update({
+                'PATH': '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin',
+                'HOME': os.path.expanduser('~'),
+                'LANG': 'en_US.UTF-8',
+                'DISPLAY': ':0',
+                'USER': os.getenv('USER', 'unknown'),
+                'TMPDIR': '/tmp'
+            })
+            
             result = subprocess.run(
                 ['osascript', '-e', script],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=10,
+                env=env
             )
             
             return result.returncode == 0

@@ -76,9 +76,8 @@ class ClaudeClient:
         monitoring_data = self.get_monitoring_data()
         
         if monitoring_data is None:
-            self.display_manager.show_error_message(
-                "No data available. Daemon may not be running."
-            )
+            # Show full-screen daemon offline display
+            self.display_manager.render_daemon_offline_display()
             return False
         
         # Render the display
@@ -101,13 +100,7 @@ class ClaudeClient:
             while True:
                 success = self.run_single_iteration()
                 
-                if not success:
-                    # If no data available, show error and retry
-                    self.show_daemon_not_running_message()
-                    time.sleep(self.refresh_interval)
-                    continue
-                
-                # Wait for next refresh
+                # Wait for next refresh (whether successful or not)
                 time.sleep(self.refresh_interval)
                 
         except KeyboardInterrupt:

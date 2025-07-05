@@ -52,6 +52,9 @@ fi
 echo -e "${GREEN}Copying monitor data to Scriptable...${NC}"
 cp "$SOURCE_FILE" "$DEST_FILE"
 
+# Force iCloud sync by touching the file to trigger upload
+touch "$DEST_FILE"
+
 # Verify copy
 if [ -f "$DEST_FILE" ]; then
     echo -e "${GREEN}✓ Successfully synced to Scriptable container${NC}"
@@ -84,3 +87,9 @@ echo ""
 echo "To keep data in sync, run this script periodically or add it to a cron job:"
 echo "  # Run every 5 minutes"
 echo "  */5 * * * * $0"
+echo ""
+echo "Note: iCloud sync between macOS and iOS may take a few minutes."
+echo "If widget shows old data, try forcing iCloud sync on iOS:"
+echo "  1. Open Files app → Browse → iCloud Drive"
+echo "  2. Pull down to refresh"
+echo "  3. Navigate to claude-monitor folder and wait for sync"

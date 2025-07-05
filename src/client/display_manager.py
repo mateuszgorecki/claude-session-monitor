@@ -240,6 +240,10 @@ class DisplayManager:
         # Clear screen
         self.clear_screen()
         
+        # Header (same as claude_monitor.py)
+        print(f"{Colors.HEADER}{Colors.BOLD}✦ ✧ ✦ CLAUDE SESSION MONITOR ✦ ✧ ✦{Colors.ENDC}")
+        print(f"{Colors.HEADER}{'=' * 35}{Colors.ENDC}\n")
+        
         # Get current time
         current_time = datetime.now()
         
@@ -308,3 +312,33 @@ class DisplayManager:
             message: Info message to display
         """
         print(f"{Colors.CYAN}{message}{Colors.ENDC}")
+    
+    def render_daemon_offline_display(self):
+        """
+        Render full-screen display when daemon is offline, matching claude_monitor.py style.
+        """
+        # Clear screen
+        self.clear_screen()
+        
+        # Header (same as normal display)
+        print(f"{Colors.HEADER}{Colors.BOLD}✦ ✧ ✦ CLAUDE SESSION MONITOR ✦ ✧ ✦{Colors.ENDC}")
+        print(f"{Colors.HEADER}{'=' * 35}{Colors.ENDC}\n")
+        
+        # Daemon status message
+        print(f"\n{Colors.FAIL}⚠️  DAEMON NOT RUNNING{Colors.ENDC}")
+        print(f"\n{Colors.WARNING}The Claude monitor daemon is currently offline.{Colors.ENDC}")
+        print(f"{Colors.WARNING}Please start the daemon to see real-time monitoring data.{Colors.ENDC}\n")
+        
+        # Instructions
+        print(f"{Colors.CYAN}To start the daemon:{Colors.ENDC}")
+        print(f"  python3 -m src.daemon.claude_daemon\n")
+        print(f"{Colors.CYAN}Or use the original monitor:{Colors.ENDC}")
+        print(f"  python3 claude_monitor.py\n")
+        
+        # Footer (simplified)
+        current_time = datetime.now()
+        print("=" * 60)
+        print(f"⏰ {current_time.strftime('%H:%M:%S')}   🔌 Daemon: {Colors.FAIL}OFFLINE{Colors.ENDC} | Ctrl+C to exit")
+        
+        # Flush output
+        sys.stdout.flush()

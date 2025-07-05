@@ -59,6 +59,11 @@ class DataReader:
             current_time - self._cache_timestamp < self.cache_duration):
             return self._cached_data
         
+        # Check if daemon is running before reading data
+        if not self.is_daemon_running():
+            self.logger.debug(f"Daemon not running - file too old or missing: {self.file_path}")
+            return None
+        
         # Try to read from file
         try:
             if not os.path.exists(self.file_path):

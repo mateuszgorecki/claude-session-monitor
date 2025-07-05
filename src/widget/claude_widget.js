@@ -106,18 +106,21 @@ class ClaudeWidget {
         throw new Error("Data file not found. Make sure macOS daemon is running.");
       }
 
-      // Check if file has been updated recently
-      const modDate = fm.modificationDate(dataPath);
+      // Read the data first to check internal timestamp
+      const dataString = fm.readString(dataPath);
+      const tempData = JSON.parse(dataString);
+      
+      // Check if data has been updated recently using internal timestamp
+      const lastUpdateTime = new Date(tempData.last_update);
       const now = new Date();
-      const ageMinutes = (now - modDate) / (1000 * 60);
+      const ageMinutes = (now - lastUpdateTime) / (1000 * 60);
       
       if (ageMinutes > 5) {
         throw new Error(`Data is ${Math.round(ageMinutes)} minutes old. Check daemon status.`);
       }
 
-      const dataString = fm.readString(dataPath);
-      this.data = JSON.parse(dataString);
-      this.lastUpdate = modDate;
+      this.data = tempData;
+      this.lastUpdate = lastUpdateTime;
       this.error = null;
       
       console.log("Data loaded successfully");

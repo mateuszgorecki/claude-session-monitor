@@ -177,7 +177,21 @@ install_plist() {
     # Replace placeholders
     sed -i '' "s|__DAEMON_PATH__|$PROJECT_DIR|g" "$PLIST_DEST"
     sed -i '' "s|__USER_HOME__|$HOME|g" "$PLIST_DEST"
+    sed -i '' "s|__USER_NAME__|$(whoami)|g" "$PLIST_DEST"
     sed -i '' "s|__BILLING_START_DAY__|$BILLING_START_DAY|g" "$PLIST_DEST"
+    
+    # Update PATH with ccusage location
+    CCUSAGE_PATH=$(command -v ccusage)
+    if [[ -n "$CCUSAGE_PATH" ]]; then
+        CCUSAGE_DIR=$(dirname "$CCUSAGE_PATH")
+        # Add ccusage directory to PATH if not already present
+        if ! grep -q "$CCUSAGE_DIR" "$PLIST_DEST"; then
+            sed -i '' "s|__USER_HOME__/.nvm/versions/node/v20.5.0/bin|$CCUSAGE_DIR|g" "$PLIST_DEST"
+        fi
+        log_success "Added ccusage path to daemon: $CCUSAGE_DIR"
+    else
+        log_warning "ccusage not found in PATH - daemon may not work correctly"
+    fi
     
     # Update sessions count
     sed -i '' "s|<string>50</string>|<string>$MONTHLY_SESSIONS</string>|g" "$PLIST_DEST"

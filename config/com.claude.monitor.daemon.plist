@@ -41,19 +41,27 @@
     <key>KeepAlive</key>
     <true/>
     
-    <!-- Restart policy -->
+    <!-- Restart policy - Use Interactive for GUI access -->
     <key>ProcessType</key>
-    <string>Background</string>
+    <string>Interactive</string>
     
     <!-- Environment variables -->
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:__USER_HOME__/.nvm/versions/node/v20.5.0/bin</string>
         <key>HOME</key>
         <string>__USER_HOME__</string>
         <key>LANG</key>
         <string>en_US.UTF-8</string>
+        <key>DISPLAY</key>
+        <string>:0</string>
+        <key>USER</key>
+        <string>__USER_NAME__</string>
+        <key>TMPDIR</key>
+        <string>/tmp</string>
+        <key>XPC_SERVICE_NAME</key>
+        <string>com.claude.monitor.daemon</string>
     </dict>
     
     <!-- Logging configuration -->
@@ -91,5 +99,21 @@
     <!-- Low priority background process -->
     <key>LowPriorityIO</key>
     <true/>
+    
+    <!-- Enable GUI access -->
+    <key>EnableGlobbing</key>
+    <true/>
+    
+    <!-- Enable Transactions -->
+    <key>EnableTransactions</key>
+    <true/>
+    
+    <!-- GUI Access - run in user session -->
+    <key>SessionCreate</key>
+    <true/>
+    
+    <!-- Wait for GUI context -->
+    <key>LaunchOnlyOnce</key>
+    <false/>
 </dict>
 </plist>

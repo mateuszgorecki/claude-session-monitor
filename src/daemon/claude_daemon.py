@@ -199,10 +199,14 @@ class ClaudeDaemon:
             monitoring_data: Current monitoring data
         """
         try:
-            # Check each active session for time warnings and inactivity
+            # Check each active session for time warnings, inactivity, and max tokens
             for session in monitoring_data.current_sessions:
                 if not session.is_active or session.end_time is None:
                     continue
+                
+                # Check for real-time max tokens update (like old system)
+                if self.data_collector.update_max_tokens_if_higher(session.total_tokens):
+                    self.logger.info(f"New maximum tokens found during active session: {session.total_tokens:,}")
                 
                 # Check time remaining warning
                 time_remaining = session.end_time - datetime.now(timezone.utc)
