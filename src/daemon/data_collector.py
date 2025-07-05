@@ -256,9 +256,34 @@ class DataCollector:
         
         # Set up environment for GUI access
         env = os.environ.copy()
+        
+        # Get current PATH and ensure it includes common locations
+        current_path = env.get('PATH', '')
+        path_additions = ['/usr/local/bin', '/usr/bin', '/bin', '/opt/homebrew/bin']
+        
+        # Add NVM node path if available
+        home_dir = os.path.expanduser('~')
+        nvm_path = f"{home_dir}/.nvm/versions/node"
+        if os.path.exists(nvm_path):
+            # Find the active node version
+            try:
+                node_versions = [d for d in os.listdir(nvm_path) if d.startswith('v')]
+                if node_versions:
+                    # Use the first available version (could be improved with .nvmrc checking)
+                    latest_version = sorted(node_versions, reverse=True)[0]
+                    node_bin_path = f"{nvm_path}/{latest_version}/bin"
+                    if os.path.exists(node_bin_path):
+                        path_additions.append(node_bin_path)
+            except OSError:
+                pass
+        
+        # Build final PATH
+        all_paths = path_additions + [current_path] if current_path else path_additions
+        final_path = ':'.join(all_paths)
+        
         env.update({
-            'PATH': '/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin',
-            'HOME': os.path.expanduser('~'),
+            'PATH': final_path,
+            'HOME': home_dir,
             'LANG': 'en_US.UTF-8',
             'DISPLAY': ':0',
             'USER': os.getenv('USER', 'unknown'),
@@ -267,7 +292,7 @@ class DataCollector:
         
         try:
             # Check if ccusage is available before attempting to run it
-            if not self._check_ccusage_available():
+            if not self._check_ccusage_available(env):
                 self.logger.error("ccusage command not found in PATH")
                 return {"blocks": []}
             
@@ -287,18 +312,29 @@ class DataCollector:
             self.logger.error(f"ccusage command failed: {e}")
             return {"blocks": []}
     
-    def _check_ccusage_available(self) -> bool:
+    def _check_ccusage_available(self, env=None) -> bool:
         """
         Check if ccusage command is available in PATH.
         
+        Args:
+            env: Environment dictionary to use for path resolution
+            
         Returns:
             bool: True if ccusage is available, False otherwise
         """
         import shutil
         
         try:
-            # Check if ccusage is in PATH
-            return shutil.which("ccusage") is not None
+            # Use provided environment or current environment
+            if env is None:
+                env = os.environ
+                
+            # Check if ccusage is in PATH with the given environment
+            path = env.get('PATH', '')
+            for path_dir in path.split(':'):
+                if path_dir and os.path.exists(os.path.join(path_dir, 'ccusage')):
+                    return True
+            return False
         except Exception as e:
             self.logger.warning(f"Error checking ccusage availability: {e}")
             return False
