@@ -95,7 +95,11 @@ class ClaudeWidget {
   // Load monitoring data from iCloud
   async loadData() {
     try {
+      // Try to access global iCloud Documents first
       const fm = FileManager.iCloud();
+      
+      // Scriptable accesses files via Shortcuts app integration or manual file placement
+      // User needs to place monitor_data.json in Scriptable's iCloud Documents folder
       const dataPath = fm.documentsDirectory() + "/" + DATA_FILE_PATH;
       
       if (!fm.fileExists(dataPath)) {

@@ -7,6 +7,7 @@ A beautiful iOS/iPadOS widget that displays real-time Claude API usage statistic
 - **Real-time monitoring**: Shows current session status, usage statistics, and billing period information
 - **Multiple widget sizes**: Optimized layouts for small, medium, and large widgets
 - **Automatic sync**: Updates every minute via iCloud Drive synchronization
+- **Sync automation**: Included script for automatic data synchronization to Scriptable container
 - **Dark/Light themes**: Automatically adapts to your device's appearance
 - **Customizable display**: Configure which metrics to show for each widget size
 - **Error handling**: Graceful degradation when data is unavailable
@@ -24,17 +25,43 @@ A beautiful iOS/iPadOS widget that displays real-time Claude API usage statistic
 1. Download and install **Scriptable** from the iOS App Store
 2. Open the app and familiarize yourself with the interface
 
-### Step 2: Set up macOS Daemon (if not already done)
+### Step 2: Set up macOS Daemon and File Sync
 
 1. On your macOS system, ensure the Claude Monitor daemon is running:
    ```bash
    uv run python3 run_daemon.py --start-day 17  # Use your billing start day
    ```
 
-2. Verify iCloud sync is working by checking for files in:
+2. Verify the daemon creates data files in:
    ```
-   ~/Library/Mobile Documents/com~apple~CloudDocs/claude-monitor/
+   ~/Library/Mobile Documents/com~apple~CloudDocs/claude-monitor/monitor_data.json
    ```
+
+3. **Sync data to Scriptable container** (required due to iOS sandboxing):
+   ```bash
+   # Use the provided sync script
+   ./src/widget/sync_to_scriptable.sh
+   ```
+
+   **Automatic sync** (recommended):
+   ```bash
+   # Add to crontab for automatic sync every 5 minutes
+   crontab -e
+   # Add this line:
+   */5 * * * * /full/path/to/claude-session-monitor/src/widget/sync_to_scriptable.sh
+   ```
+
+   **Manual sync** (alternative):
+   ```bash
+   # Create Scriptable's claude-monitor folder
+   mkdir -p ~/Library/Mobile\ Documents/iCloud~dk~simonbs~Scriptable/Documents/claude-monitor/
+   
+   # Copy the data file manually
+   cp ~/Library/Mobile\ Documents/com~apple~CloudDocs/claude-monitor/monitor_data.json \
+      ~/Library/Mobile\ Documents/iCloud~dk~simonbs~Scriptable/Documents/claude-monitor/
+   ```
+
+   **Note**: Due to iOS app sandboxing, Scriptable can only access its own iCloud container. The data file needs to be copied or synced to Scriptable's Documents folder.
 
 ### Step 3: Install Widget Script
 
@@ -111,11 +138,21 @@ The widget includes sensible defaults, but you can customize it by creating a co
    ps aux | grep claude_daemon
    ```
 
-2. **Verify iCloud sync**:
-   - Check if files exist in `~/Library/Mobile Documents/com~apple~CloudDocs/claude-monitor/`
-   - Try manually syncing iCloud Drive
+2. **Verify data file locations**:
+   ```bash
+   # Check daemon creates the file
+   ls -la ~/Library/Mobile\ Documents/com~apple~CloudDocs/claude-monitor/
+   
+   # Check file is synced to Scriptable
+   ls -la ~/Library/Mobile\ Documents/iCloud~dk~simonbs~Scriptable/Documents/claude-monitor/
+   ```
 
-3. **Restart daemon** if needed:
+3. **Run sync script**:
+   ```bash
+   ./src/widget/sync_to_scriptable.sh
+   ```
+
+4. **Restart daemon** if needed:
    ```bash
    uv run python3 run_daemon.py --start-day YOUR_BILLING_DAY
    ```
