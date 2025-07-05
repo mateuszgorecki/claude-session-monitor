@@ -555,12 +555,12 @@ Uproszczona implementacja w demonie wprowadza regresję funkcjonalności i może
 
 ### Faza 5: Narzędzia Systemowe i Deployment
 
-#### Zadanie 5.1: Skrypty instalacji demona
+#### Zadanie 5.1: Skrypty instalacji demona ✅
 
-- [ ] Stwórz `install_daemon.sh` dla macOS (launchd)
-- [ ] Napisz `uninstall_daemon.sh` dla macOS
-- [ ] Dodaj automatyczne uruchamianie przy starcie systemu
-- [ ] Dodaj konfigurację ścieżki iCloud Drive
+- [x] Stwórz `install_daemon.sh` dla macOS (launchd)
+- [x] Napisz `uninstall_daemon.sh` dla macOS
+- [x] Dodaj automatyczne uruchamianie przy starcie systemu
+- [x] Dodaj konfigurację ścieżki iCloud Drive
 
 #### Zadanie 5.2: Migracja z starej wersji
 
