@@ -55,8 +55,8 @@ class DataCollector:
             config_dict = self.config.to_dict()
             fetch_since = self.determine_fetch_strategy(config_dict, self.config.billing_start_day)
             
-            # Execute ccusage with smart fetching using subprocess pool
-            data = run_ccusage_pooled(fetch_since)
+            # Execute ccusage with os.system to avoid fork issues
+            data = self.run_ccusage(fetch_since)
             if not data or "blocks" not in data:
                 self._consecutive_failures += 1
                 error_msg = "No blocks data returned from ccusage"
