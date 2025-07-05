@@ -75,7 +75,7 @@ stop_daemon() {
     if [[ "$DAEMON_RUNNING" == "true" ]]; then
         log_info "Stopping daemon service..."
         
-        if launchctl unload "$PLIST_PATH" 2>/dev/null; then
+        if launchctl bootout "gui/$(id -u)" "$PLIST_PATH" 2>/dev/null; then
             log_success "Daemon stopped successfully"
         else
             log_warning "Failed to stop daemon (it may already be stopped)"

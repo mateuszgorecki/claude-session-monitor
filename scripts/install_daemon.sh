@@ -219,11 +219,11 @@ load_daemon() {
     # Stop existing daemon if running
     if launchctl list | grep -q "$DAEMON_NAME"; then
         log_info "Stopping existing daemon..."
-        launchctl unload "$LAUNCHD_DIR/$DAEMON_NAME.plist" 2>/dev/null || true
+        launchctl bootout "gui/$(id -u)" "$LAUNCHD_DIR/$DAEMON_NAME.plist" 2>/dev/null || true
     fi
     
-    # Load new daemon
-    launchctl load "$LAUNCHD_DIR/$DAEMON_NAME.plist"
+    # Load new daemon using bootstrap (modern launchctl)
+    launchctl bootstrap "gui/$(id -u)" "$LAUNCHD_DIR/$DAEMON_NAME.plist"
     
     # Wait a moment for startup
     sleep 2
@@ -295,8 +295,8 @@ show_completion() {
     echo "• To uninstall: run scripts/uninstall_daemon.sh"
     echo
     echo "=== Daemon Management ==="
-    echo "• Stop:    launchctl unload ~/Library/LaunchAgents/$DAEMON_NAME.plist"
-    echo "• Start:   launchctl load ~/Library/LaunchAgents/$DAEMON_NAME.plist"
+    echo "• Stop:    launchctl bootout gui/\$(id -u) ~/Library/LaunchAgents/$DAEMON_NAME.plist"
+    echo "• Start:   launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/$DAEMON_NAME.plist"
     echo "• Status:  launchctl list | grep claude.monitor"
     echo
 }
