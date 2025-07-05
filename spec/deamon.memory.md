@@ -1,3 +1,78 @@
+####################### 2025-07-05, 16:24:00
+## Task: Task 5.1 Daemon Installation Scripts - macOS launchd Fork Restrictions Resolution
+**Date:** 2025-07-05
+**Status:** ✅ Success - Alternative Cron-Based Installation
+
+### 1. Summary
+* **Problem:** Daemon nie mógł uruchomić subprocess (ccusage) w kontekście macOS launchd - otrzymywał błąd `[Errno 35] Resource temporarily unavailable` przy każdej próbie fork/exec. Problem był fundamentalny - launchd ma bardzo restrykcyjne ograniczenia bezpieczeństwa które blokują tworzenie procesów potomnych.
+* **Solution:** Zaimplementowano alternatywną instalację opartą na cron zamiast launchd. Daemon działa jako normalny proces użytkownika, a cron sprawdza co minutę czy działa i uruchamia go ponownie jeśli potrzeba.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Po wielokrotnych próbach obejścia ograniczeń launchd (zwiększanie limitów, różne typy procesów, wrapper skrypty) zdecydowano na fundamentalną zmianę - daemon jako zwykły proces + cron jako watchdog. To rozwiązanie jest prostsze i niezawodne.
+* **Library/Dependency Choices:** Pozostano przy subprocess.run() dla ccusage - problem nie był w kodzie Python ale w kontekście wykonania przez launchd. Cron nie ma tych restrykcji.
+* **Method/Algorithm Choices:** Cron sprawdza co minutę czy proces run_daemon.py działa (pgrep) i uruchamia go jeśli nie. Daemon sam zarządza swoim cyklem 10-sekundowym. To podejście watchdog jest bardziej niezawodne niż próby naprawy launchd.
+* **Testing Strategy:** Przetestowano wszystkie możliwe obejścia launchd: limity zasobów, typy procesów, zmienne środowiskowe, wrapper bash, direct node execution, os.system zamiast subprocess - nic nie działało. Errno 35 to fundamentalne ograniczenie bezpieczeństwa macOS.
+* **Other Key Decisions:** Zachowano kompatybilność - użytkownik może używać install_cron.sh zamiast install_daemon.sh. Oba systemy współistnieją w kodzie. Dodano auto-cleanup launchd przy instalacji cron.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. **Diagnoza problemu:** Zidentyfikowano że błąd występuje tylko w kontekście launchd, nie przy ręcznym uruchomieniu
+  2. **Próby obejścia launchd:** Zwiększanie limitów procesów (10→128→256), plików (1024→2048→4096), dodanie flag AbandonProcessGroup, EnableGlobbing, zmiana ProcessType
+  3. **Alternatywne metody wykonania:** os.system zamiast subprocess, wrapper bash z pełnym środowiskiem, bezpośrednie wywołanie node
+  4. **Implementacja rozwiązania cron:** Utworzono install_cron.sh i uninstall_cron.sh z systemem watchdog
+  5. **Integracja:** Zachowano istniejące skrypty launchd jako alternatywę
+
+* **Challenges Encountered:**
+  1. **macOS Security Restrictions:** launchd blokuje fork/exec nawet z maksymalnymi limitami - to nie jest problem konfiguracji ale architektury bezpieczeństwa
+  2. **Environment Issues:** PATH, NODE_PATH nie działały poprawnie w kontekście launchd mimo pełnej konfiguracji
+  3. **Multiple Failed Approaches:** subprocess, os.system, bash wrapper, direct node execution - wszystkie dawały Errno 35
+  4. **Session Context:** LaunchAgent działa w innym kontekście bezpieczeństwa niż procesy uruchamiane z terminala
+
+* **Key Implementation Details:**
+  - `install_cron.sh` tworzy `daemon_runner.sh` który sprawdza czy daemon działa
+  - Cron job: `* * * * * /path/to/daemon_runner.sh` - sprawdza co minutę
+  - `nohup python3 run_daemon.py &` - detach od cron, daemon działa niezależnie  
+  - Auto-cleanup launchd przy instalacji cron dla smooth transition
+  - Pełne logowanie: daemon.log (główne logi) + cron.log (cron activity)
+
+### 4. Verification Results
+* **launchd Approach:** Wszystkie próby kończyły się `[Errno 35] Resource temporarily unavailable`
+* **Cron Approach:** Daemon uruchamia się jako normalny proces i może wykonywać subprocess bez ograniczeń
+* **Compatibility:** Zachowana kompatybilność z istniejącym kodem - zmiana tylko mechanizmu uruchamiania
+* **Robustness:** Cron restart w ciągu 1 minuty jeśli daemon się zawiesi
+
+### 5. Key Features Implemented
+1. **install_cron.sh** - Alternatywna instalacja z auto-cleanup launchd
+2. **uninstall_cron.sh** - Czysty removal z cron i zatrzymanie procesu
+3. **daemon_runner.sh** - Watchdog script z pgrep check i nohup start
+4. **Dual logging** - daemon.log dla głównych działań, cron.log dla watchdog activity
+5. **Backward compatibility** - Stare skrypty launchd nadal dostępne
+
+### 6. Production Impact
+* **Reliability:** Demon może teraz niezawodnie uruchamiać ccusage i zbierać dane
+* **Maintenance:** Prostszy system - cron jest bardziej przewidywalny niż launchd
+* **User Experience:** install_cron.sh "just works" - jedna komenda i wszystko działą
+* **Error Recovery:** Auto-restart w 1 minutę przy crash, vs manual restart przy launchd
+* **Cross-platform:** Cron approach będzie działać na innych Unix systems gdyby potrzeba
+
+### 7. Architecture Benefits
+**Security Bypass:**
+- Omija ograniczenia bezpieczeństwa launchd bez kompromisów
+- Demon działa z pełnymi uprawnieniami użytkownika (jak przy ręcznym uruchomieniu)
+- Subprocess/fork działają normalnie w tym kontekście
+
+**Operational Simplicity:**
+- Cron jest prostszy i bardziej niezawodny niż launchd dla tego use case
+- Łatwiejszy debugging - zwykłe logi Python zamiast launchd complications
+- Standard Unix approach - działa identycznie na różnych systemach
+
+**Enhanced Monitoring:**
+- Dual logging pozwala oddzielić daemon activity od restart activity
+- Jasne PID tracking w logach cron
+- Proste narzędzia diagnostyczne (ps, pgrep) zamiast launchctl
+
+**Final Status:** 🎯 **TASK 5.1 COMPLETED WITH ALTERNATIVE APPROACH** - Demon installation scripts działają przez cron, omijając fundamentalne ograniczenia macOS launchd. Cron-based approach jest prostszy, bardziej niezawodny i całkowicie omija problem Errno 35.
+
 ####################### 2025-07-05, 13:59:00
 ## Task: iOS Widget Data Synchronization Issues Resolution
 **Date:** 2025-07-05
