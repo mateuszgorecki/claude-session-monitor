@@ -13,6 +13,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus
+from .subprocess_pool import run_ccusage_pooled
 
 
 class DataCollector:
@@ -53,8 +54,8 @@ class DataCollector:
             config_dict = self.config.to_dict()
             fetch_since = self.determine_fetch_strategy(config_dict, self.config.billing_start_day)
             
-            # Execute ccusage with smart fetching
-            data = self.run_ccusage(fetch_since)
+            # Execute ccusage with smart fetching using subprocess pool
+            data = run_ccusage_pooled(fetch_since)
             if not data or "blocks" not in data:
                 self._consecutive_failures += 1
                 error_msg = "No blocks data returned from ccusage"
@@ -436,7 +437,7 @@ class DataCollector:
         """Force recalculation of max tokens from historical data."""
         try:
             # Fetch all historical data
-            data = self.run_ccusage()  # No since_date = fetch everything
+            data = run_ccusage_pooled()  # No since_date = fetch everything
             if not data or "blocks" not in data:
                 self.logger.warning("No data available for max tokens recalculation")
                 return
@@ -470,7 +471,7 @@ class DataCollector:
             self.logger.info("Scanning all historical data for maximum tokens...")
             
             # Fetch ALL historical data (no since_date parameter)
-            data = self.run_ccusage()
+            data = run_ccusage_pooled()
             if not data or "blocks" not in data:
                 self.logger.warning("No historical data available, using default max_tokens")
                 return 35000

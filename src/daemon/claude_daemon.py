@@ -19,6 +19,7 @@ from shared.constants import DEFAULT_CCUSAGE_FETCH_INTERVAL_SECONDS
 from shared.file_manager import DataFileManager
 from .data_collector import DataCollector
 from .notification_manager import NotificationManager
+from .subprocess_pool import get_subprocess_pool
 
 
 class ClaudeDaemon:
@@ -122,6 +123,14 @@ class ClaudeDaemon:
                 self.logger.warning("Daemon thread did not stop within timeout")
             else:
                 self.logger.info("Daemon stopped successfully")
+                
+        # Shutdown subprocess pool
+        try:
+            pool = get_subprocess_pool()
+            pool.stop()
+            self.logger.info("Subprocess pool shut down successfully")
+        except Exception as e:
+            self.logger.error(f"Error shutting down subprocess pool: {e}")
     
     def _main_loop(self):
         """

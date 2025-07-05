@@ -174,24 +174,20 @@ install_plist() {
     # Create plist from template
     cp "$PLIST_TEMPLATE" "$PLIST_DEST"
     
+    # Get full PATH and Python path
+    FULL_PATH="$PATH"
+    PYTHON_PATH=$(command -v python3)
+    
     # Replace placeholders
     sed -i '' "s|__DAEMON_PATH__|$PROJECT_DIR|g" "$PLIST_DEST"
     sed -i '' "s|__USER_HOME__|$HOME|g" "$PLIST_DEST"
     sed -i '' "s|__USER_NAME__|$(whoami)|g" "$PLIST_DEST"
     sed -i '' "s|__BILLING_START_DAY__|$BILLING_START_DAY|g" "$PLIST_DEST"
+    sed -i '' "s|__PYTHON_PATH__|$PYTHON_PATH|g" "$PLIST_DEST"
+    sed -i '' "s|__FULL_PATH__|$FULL_PATH|g" "$PLIST_DEST"
     
-    # Update PATH with ccusage location
-    CCUSAGE_PATH=$(command -v ccusage)
-    if [[ -n "$CCUSAGE_PATH" ]]; then
-        CCUSAGE_DIR=$(dirname "$CCUSAGE_PATH")
-        # Add ccusage directory to PATH if not already present
-        if ! grep -q "$CCUSAGE_DIR" "$PLIST_DEST"; then
-            sed -i '' "s|__USER_HOME__/.nvm/versions/node/v20.5.0/bin|$CCUSAGE_DIR|g" "$PLIST_DEST"
-        fi
-        log_success "Added ccusage path to daemon: $CCUSAGE_DIR"
-    else
-        log_warning "ccusage not found in PATH - daemon may not work correctly"
-    fi
+    log_info "Using Python: $PYTHON_PATH"
+    log_info "Using PATH: $FULL_PATH"
     
     # Update sessions count
     sed -i '' "s|<string>50</string>|<string>$MONTHLY_SESSIONS</string>|g" "$PLIST_DEST"

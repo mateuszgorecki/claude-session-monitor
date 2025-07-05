@@ -8,11 +8,12 @@
     
     <!-- Program execution -->
     <key>Program</key>
-    <string>__DAEMON_PATH__/scripts/daemon_wrapper.sh</string>
+    <string>__PYTHON_PATH__</string>
     
     <key>ProgramArguments</key>
     <array>
-        <string>__DAEMON_PATH__/scripts/daemon_wrapper.sh</string>
+        <string>__PYTHON_PATH__</string>
+        <string>__DAEMON_PATH__/run_daemon.py</string>
         <string>--start-day</string>
         <string>__BILLING_START_DAY__</string>
         <string>--interval</string>
@@ -39,11 +40,17 @@
     <key>KeepAlive</key>
     <true/>
     
-    <!-- Environment variables (minimal, rest handled by wrapper) -->
+    <!-- Environment variables -->
     <key>EnvironmentVariables</key>
     <dict>
         <key>HOME</key>
         <string>__USER_HOME__</string>
+        <key>PATH</key>
+        <string>__FULL_PATH__</string>
+        <key>LANG</key>
+        <string>en_US.UTF-8</string>
+        <key>USER</key>
+        <string>__USER_NAME__</string>
     </dict>
     
     <!-- Logging configuration -->
@@ -59,7 +66,14 @@
         <key>NumberOfFiles</key>
         <integer>1024</integer>
         <key>NumberOfProcesses</key>
-        <integer>10</integer>
+        <integer>128</integer>
+    </dict>
+    
+    <!-- Hard resource limits to prevent runaway processes -->
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>NumberOfProcesses</key>
+        <integer>256</integer>
     </dict>
     
     <!-- Throttling configuration -->
