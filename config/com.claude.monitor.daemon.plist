@@ -90,6 +90,10 @@
     <key>ProcessType</key>
     <string>Standard</string>
     
+    <!-- Allow fork -->
+    <key>AbandonProcessGroup</key>
+    <true/>
+    
     <!-- Exit timeout -->
     <key>ExitTimeOut</key>
     <integer>30</integer>

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus
 from .subprocess_pool import run_ccusage_pooled
+from .ccusage_runner import run_ccusage_direct
 
 
 class DataCollector:
@@ -250,6 +251,10 @@ class DataCollector:
         return self._consecutive_failures
     
     def run_ccusage(self, since_date: str = None) -> dict:
+        """Execute ccusage using os.system to avoid fork issues."""
+        return run_ccusage_direct(since_date)
+    
+    def run_ccusage_subprocess(self, since_date: str = None) -> dict:
         """Execute ccusage command with optional since parameter."""
         # Find node executable
         node_path = None
@@ -312,14 +317,29 @@ class DataCollector:
         
         try:
             
-            result = subprocess.run(
-                command, 
-                capture_output=True, 
-                text=True, 
-                check=True,
-                env=env,
-                timeout=30
-            )
+            # Use posix_spawn instead of fork on macOS
+            import platform
+            if platform.system() == 'Darwin':
+                # Force use of posix_spawn instead of fork
+                result = subprocess.run(
+                    command, 
+                    capture_output=True, 
+                    text=True, 
+                    check=True,
+                    env=env,
+                    timeout=30,
+                    # This tells subprocess to use posix_spawn on macOS
+                    start_new_session=True
+                )
+            else:
+                result = subprocess.run(
+                    command, 
+                    capture_output=True, 
+                    text=True, 
+                    check=True,
+                    env=env,
+                    timeout=30
+                )
             return json.loads(result.stdout)
         except subprocess.TimeoutExpired:
             self.logger.error("ccusage command timed out")
