@@ -251,8 +251,27 @@ class DataCollector:
         return self._consecutive_failures
     
     def run_ccusage(self, since_date: str = None) -> dict:
-        """Execute ccusage using os.system to avoid fork issues."""
-        return run_ccusage_direct(since_date)
+        """Execute ccusage using wrapper script."""
+        import os
+        wrapper_path = os.path.join(os.path.dirname(__file__), '..', '..', 'scripts', 'ccusage_wrapper.sh')
+        wrapper_path = os.path.abspath(wrapper_path)
+        
+        command = [wrapper_path, "blocks", "-j"]
+        if since_date:
+            command.extend(["-s", since_date])
+            
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30
+            )
+            return json.loads(result.stdout)
+        except Exception as e:
+            self.logger.error(f"ccusage wrapper failed: {e}")
+            return {"blocks": []}
     
     def run_ccusage_subprocess(self, since_date: str = None) -> dict:
         """Execute ccusage command with optional since parameter."""
