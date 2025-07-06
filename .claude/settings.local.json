@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(python3:*)",
+      "Bash(time python3:*)",
+      "Bash(time timeout:*)",
+      "Bash(true)",
+      "Bash(ls:*)",
+      "Bash(timeout 3 python3 claude_monitor.py --start-day 17 --recalculate)",
+      "Bash(timeout 3 python3:*)",
+      "Bash(git push:*)",
+      "Bash(rg:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(if [[ -f \"spec/todo.md\" ]])",
+      "Bash(then)",
+      "Bash(zed:*)",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(git checkout:*)",
+      "Bash(python -m pytest tests/test_data_models.py -v)",
+      "Bash(uv run:*)",
+      "Bash(find:*)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(uv add:*)",
+      "Bash(python -m pytest tests/test_daemon.py::TestClaudeDaemon::test_daemon_saves_data_to_file -v)",
+      "Bash(ccusage blocks:*)",
+      "Bash(ccusage status)",
+      "Bash(ccusage --help)",
+      "Bash(ccusage session:*)",
+      "Bash(sed:*)",
+      "Bash(timeout 10 python3:*)",
+      "Bash(pkill:*)",
+      "Bash(chmod:*)"
+    ],
+    "deny": []
+  }
+}

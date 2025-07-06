@@ -38,38 +38,54 @@ A Python-based real-time monitoring tool for Claude Code Max Sessions usage, cos
 - **macOS** (optimized for macOS notifications, but runs on other platforms)
 - **Python 3.9+** (uses `zoneinfo` from standard library)
 - **ccusage CLI tool** - Required for fetching Claude API usage data
+- **uv** - Package manager (recommended for development workflow)
 
 ## Installation
 
-1. **Install ccusage** following the instructions at: https://github.com/ryoppippi/ccusage
+### Method 1: Complete System (Recommended)
 
-2. **Set up Python virtual environment (recommended):**
+1. **Install ccusage** following instructions at: https://github.com/ryoppippi/ccusage
+
+2. **Install uv package manager:**
    ```bash
-   python3 -m venv claude-monitor-env
-   source claude-monitor-env/bin/activate  # On Windows: claude-monitor-env\Scripts\activate
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-3. **Install required Python packages:**
+3. **Clone and setup:**
    ```bash
-   pip install zoneinfo  # Only needed if Python < 3.9
+   git clone https://github.com/emssik/claude-session-monitor.git
+   cd claude-session-monitor
+   uv venv
    ```
-   Note: The script uses only standard library modules for Python 3.9+, so no additional packages are required for modern Python versions.
 
-   **macOS Notifications:** The script first tries to use `terminal-notifier` (if installed) for better notifications, then falls back to built-in `osascript`. To install the optional enhanced notifier:
+4. **Install daemon service (macOS):**
    ```bash
-   brew install terminal-notifier
+   ./scripts/install_cron.sh
    ```
-   On other platforms, notifications are silently skipped.
 
-4. **Download the script:**
+5. **Run client:**
+   ```bash
+   uv run python3 claude_client.py
+   ```
+
+### Method 2: Legacy Single Script
+
+1. **Install ccusage** following instructions at: https://github.com/ryoppippi/ccusage
+
+2. **Download the script:**
    ```bash
    curl -O https://raw.githubusercontent.com/emssik/claude-session-monitor/main/claude_monitor.py
    ```
 
-5. **Run the monitor:**
+3. **Run directly:**
    ```bash
    python3 claude_monitor.py --start-day 15
    ```
+
+### Optional: Enhanced Notifications (macOS)
+```bash
+brew install terminal-notifier
+```
 
 ## What It Shows
 
@@ -80,6 +96,8 @@ The monitor displays:
 - **Real-time session tracking** with time remaining
 - **Cost tracking** for current and maximum usage
 - **macOS notifications** for time warnings and inactivity alerts
+- **Anti-flicker terminal UI** for smooth monitoring experience
+- **Compressed footer** with optimized information density
 
 ## Usage and Options
 
@@ -139,13 +157,60 @@ You can modify these values in the source code:
 - `INACTIVITY_ALERT_MINUTES = 10` - Notification for idle periods
 - `LOCAL_TZ = ZoneInfo("Europe/Warsaw")` - Default display timezone (can be overridden with --timezone)
 
+## Quick Start: Daemon + Client Architecture
+
+### 🚀 Recommended: Auto-Installation
+```bash
+# Install daemon service and run client
+./scripts/install_cron.sh
+uv run python3 claude_client.py
+```
+
+### 🎯 Manual Testing (Two Terminals)
+
+**Terminal 1 - Start Daemon:**
+```bash
+uv run python3 run_daemon.py --start-day 15  # Your billing start day (1-31)
+```
+
+**Terminal 2 - Start Client:**
+```bash
+uv run python3 claude_client.py
+```
+
+### ⚙️ Configuration Options
+```bash
+# Daemon with custom settings
+uv run python3 run_daemon.py --start-day 15 --sessions 100 --time-alert 45
+
+# Check if daemon is running
+ps aux | grep claude_daemon
+
+# Legacy single-script mode
+uv run python3 claude_monitor.py --start-day 15
+```
+
 ## How It Works
 
-1. **Data Fetching**: Integrates with `ccusage blocks -j` to retrieve usage data
-2. **Local Caching**: Maintains cache with 10-second refresh intervals
-3. **Session Tracking**: Monitors active sessions by comparing current time with session ranges
-4. **Statistics**: Updates monthly statistics when sessions end
-5. **Persistence**: Saves configuration and historical maximums to JSON file
+**Current Architecture (Daemon + Client):**
+- **Daemon Service**: Background service with cron-based installation
+- **Data Collection**: Calls `ccusage blocks -j` every 10 seconds with robust error handling
+- **Execution Strategy**: Multi-tier fallback system (wrapper script → subprocess → os.system)
+- **File Storage**: Atomic writes to `~/.config/claude-monitor/monitor_data.json`
+- **iCloud Sync**: Automatic synchronization to iCloud Drive for iOS widget access
+- **Client Display**: Anti-flicker terminal UI with compressed footer and smooth updates
+- **Notification System**: Rate-limited alerts with message-specific tracking
+- **Thread Safety**: Event-based synchronization prevents race conditions
+
+**Legacy Mode:**
+- **Direct**: Original `claude_monitor.py` calls `ccusage` on every refresh (still available)
+
+**Key Improvements:**
+- **Strategy Pattern**: Unified ccusage execution with automatic fallback
+- **Thread-Safe Operations**: Event-based synchronization replaces busy waiting
+- **UI Enhancements**: Anti-flicker system and professional terminal appearance
+- **Notification Management**: Spam prevention with configurable rate limits
+- **Data Reliability**: Atomic file operations and graceful error handling
 
 ## License
 
