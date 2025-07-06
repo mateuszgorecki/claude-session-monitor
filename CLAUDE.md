@@ -22,10 +22,13 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
    - `claude_daemon.py` - Main daemon class with lifecycle management
    - `data_collector.py` - ccusage integration with billing period filtering
    - `notification_manager.py` - macOS notifications (terminal-notifier + osascript)
+   - `ccusage_executor.py` - Unified ccusage execution with strategy pattern and fallback
+   - `improved_subprocess_pool.py` - Thread-safe subprocess management with event-based synchronization
+   - `notification_tracker.py` - Rate limiting system for notification spam prevention
 
 2. **Client Interface** (`src/client/`)
    - `data_reader.py` - File-based data access with caching
-   - `display_manager.py` - Terminal UI identical to original monitor
+   - `display_manager.py` - Terminal UI with anti-flicker system and compressed footer
    - `claude_client.py` - Main client with daemon detection
 
 3. **Shared Infrastructure** (`src/shared/`)
@@ -119,3 +122,21 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Timezone Handling**: All comparisons must use UTC-aware datetimes
 - **Session Counting**: Prevent duplicates via processed_sessions tracking
 - **Field Parsing**: Use correct ccusage structure (`tokenCounts.inputTokens`, `costUSD`)
+
+### ccusage Execution Strategy
+- **Strategy Pattern**: CcusageExecutor with multiple fallback strategies
+- **Execution Methods**: WrapperScriptStrategy → DirectSubprocessStrategy → OSSystemStrategy
+- **Fallback Mechanism**: Automatic degradation for launchd fork restrictions and path issues
+- **Thread Safety**: Event-based synchronization replaces busy waiting loops
+
+### User Interface Design
+- **Anti-flicker System**: Screen clearing only on first render, cursor positioning for updates
+- **Compressed Footer**: Optimized text density (saves ~18 characters per line)
+- **Server Terminology**: "Server" instead of "Daemon" for clearer architecture understanding
+- **Professional Icons**: 🖥️ for server services, consistent iconography
+
+### Notification Management
+- **Rate Limiting**: Message-specific tracking prevents notification spam
+- **Cooldown Periods**: Configurable per-notification-type rate limits
+- **Enum Compatibility**: Handles NotificationType aliases (TIME_WARNING/INACTIVITY_ALERT)
+- **Thread Safety**: Concurrent notification delivery without conflicts
