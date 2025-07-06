@@ -35,7 +35,10 @@
       "Bash(timeout 10 python3:*)",
       "Bash(pkill:*)",
       "Bash(chmod:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(npm run lint)",
+      "Bash(npm run:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

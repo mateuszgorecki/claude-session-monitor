@@ -159,27 +159,27 @@ claude-session-monitor/
 ### **FAZA 2: Implementacja Hook Scripts**
 
 #### Zadanie 2.1: Stworzenie hook utilities
-- [ ] **(RED)** Napisz test dla `HookLogger` klasy sprawdzający logowanie zdarzenia do pliku JSON
-- [ ] **(GREEN)** Stwórz `hooks/hook_utils.py` z klasą `HookLogger` i metodą `log_event()`
-- [ ] **(REFACTOR)** Dodaj thread-safe file operations i error handling
-- [ ] **(REPEAT)** Dodaj testy dla różnych typów zdarzeń
+- [x] **(RED)** Napisz test dla `HookLogger` klasy sprawdzający logowanie zdarzenia do pliku JSON
+- [x] **(GREEN)** Stwórz `hooks/hook_utils.py` z klasą `HookLogger` i metodą `log_event()`
+- [x] **(REFACTOR)** Dodaj thread-safe file operations i error handling
+- [x] **(REPEAT)** Dodaj testy dla różnych typów zdarzeń
 
 #### Zadanie 2.2: Implementacja notification hook
-- [ ] **(RED)** Napisz test sprawdzający parsowanie danych z Claude Code notification hook
-- [ ] **(GREEN)** Stwórz `hooks/notification_hook.py` z funkcją `main()` czytającą stdin i logującą zdarzenie
-- [ ] **(REFACTOR)** Dodaj wykrywanie typu notifikacji i session_id
-- [ ] **(REPEAT)** Dodaj testy dla różnych typów notyfikacji
+- [x] **(RED)** Napisz test sprawdzający parsowanie danych z Claude Code notification hook
+- [x] **(GREEN)** Stwórz `hooks/notification_hook.py` z funkcją `main()` czytającą stdin i logującą zdarzenie
+- [x] **(REFACTOR)** Dodaj wykrywanie typu notifikacji i session_id
+- [x] **(REPEAT)** Dodaj testy dla różnych typów notyfikacji
 
 #### Zadanie 2.3: Implementacja stop hook
-- [ ] **(RED)** Napisz test sprawdzający parsowanie danych z Claude Code stop hook
-- [ ] **(GREEN)** Stwórz `hooks/stop_hook.py` z funkcją `main()` obsługującą Stop i SubagentStop
-- [ ] **(REFACTOR)** Dodaj rozróżnienie między Stop a SubagentStop
-- [ ] **(REPEAT)** Dodaj testy dla różnych scenariuszy zakończenia
+- [x] **(RED)** Napisz test sprawdzający parsowanie danych z Claude Code stop hook
+- [x] **(GREEN)** Stwórz `hooks/stop_hook.py` z funkcją `main()` obsługującą Stop i SubagentStop
+- [x] **(REFACTOR)** Dodaj rozróżnienie między Stop a SubagentStop
+- [x] **(REPEAT)** Dodaj testy dla różnych scenariuszy zakończenia
 
 #### Zadanie 2.4: Konfiguracja hooks dla Claude Code
-- [ ] Stwórz `hooks/claude_hooks_config.json` z konfiguracją hooks zgodną z dokumentacją Claude Code
-- [ ] Dodaj instrukcje instalacji hooks w `README.md`
-- [ ] Przetestuj manualnie działanie hooks z Claude Code
+- [x] Stwórz `hooks/claude_hooks_config.json` z konfiguracją hooks zgodną z dokumentacją Claude Code
+- [x] Dodaj instrukcje instalacji hooks w `README.md`
+- [x] Przetestuj manualnie działanie hooks z Claude Code
 
 ### **FAZA 3: Session Activity Tracker**
 
