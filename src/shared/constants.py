@@ -11,6 +11,9 @@ APP_NAME = "Claude Session Monitor"
 APP_VERSION = "2.0.0"
 APP_AUTHOR = "Claude Monitor Team"
 
+# Daemon Version Information
+DAEMON_VERSION = "1.0.0"
+
 # Default Configuration Values
 DEFAULT_TOTAL_MONTHLY_SESSIONS = 50
 DEFAULT_REFRESH_INTERVAL_SECONDS = 1

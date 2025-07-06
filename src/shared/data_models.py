@@ -108,6 +108,7 @@ class MonitoringData:
     last_update: datetime
     billing_period_start: datetime
     billing_period_end: datetime
+    daemon_version: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert MonitoringData to dictionary."""
@@ -118,7 +119,8 @@ class MonitoringData:
             'max_tokens_per_session': self.max_tokens_per_session,
             'last_update': self.last_update.isoformat(),
             'billing_period_start': self.billing_period_start.isoformat(),
-            'billing_period_end': self.billing_period_end.isoformat()
+            'billing_period_end': self.billing_period_end.isoformat(),
+            'daemon_version': self.daemon_version
         }
     
     @classmethod
@@ -133,7 +135,8 @@ class MonitoringData:
             max_tokens_per_session=data['max_tokens_per_session'],
             last_update=datetime.fromisoformat(data['last_update']),
             billing_period_start=datetime.fromisoformat(data['billing_period_start']),
-            billing_period_end=datetime.fromisoformat(data['billing_period_end'])
+            billing_period_end=datetime.fromisoformat(data['billing_period_end']),
+            daemon_version=data.get('daemon_version')
         )
     
     def to_json(self) -> str:

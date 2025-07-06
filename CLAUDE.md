@@ -14,7 +14,7 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 - **Client Interface**: `claude_client.py` - Terminal display reading from daemon-generated files
 - **Legacy Monitor**: `claude_monitor.py` - Original monolithic implementation (still available)
 - **iOS Widget**: `claude_widget.js` - Scriptable widget for iOS/iPadOS via iCloud sync
-- **Installation Scripts**: `install_daemon.sh`, `install_cron.sh` - macOS service installation
+- **Installation Scripts**: `install_cron.sh` - macOS daemon installation
 
 ### Key Components
 
@@ -54,11 +54,8 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 
 ```bash
 # Daemon + Client Architecture (Recommended)
-./scripts/install_daemon.sh  # Install daemon service
+./scripts/install_cron.sh  # Install daemon service via cron
 uv run python3 claude_client.py  # Run client
-
-# Alternative: Cron-based installation (avoids launchd restrictions)
-./scripts/install_cron.sh
 
 # Legacy monolithic mode
 python3 claude_monitor.py
@@ -72,7 +69,7 @@ cp claude_widget.js [Scriptable Scripts folder]
 ### System Requirements
 - **ccusage CLI**: Must be installed and accessible in PATH
 - **Python**: 3.9+ (uses `zoneinfo` from standard library)
-- **macOS**: Optimized for macOS notifications and launchd integration
+- **macOS**: Optimized for macOS notifications and cron integration
 
 ### Python Dependencies
 - **Standard Library Only**: No external Python packages required
@@ -82,7 +79,7 @@ cp claude_widget.js [Scriptable Scripts folder]
 ### Platform-Specific
 - **macOS Notifications**: `terminal-notifier` (preferred) or `osascript` (fallback)
 - **iOS Widget**: Scriptable app from App Store
-- **Daemon Installation**: launchd (primary) or cron (fallback)
+- **Daemon Installation**: cron-based process monitoring
 
 ## Configuration
 
@@ -112,9 +109,9 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **File Operations**: Atomic writes prevent data corruption
 - **Notification Failures**: Logged but don't interrupt monitoring
 
-### macOS launchd Issues
-- **Fork Restrictions**: launchd blocks subprocess creation (Errno 35)
-- **Cron Alternative**: Watchdog-based installation for compatibility
+### macOS Cron Integration
+- **Process Monitoring**: Watchdog-based installation for reliability
+- **Auto-restart**: Daemon automatically restarts if crashed
 - **Solution**: `install_cron.sh` uses cron + process monitoring
 
 ### Data Accuracy Critical Points

@@ -13,6 +13,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus
+from shared.constants import DAEMON_VERSION
 from .subprocess_pool import run_ccusage_pooled
 from .ccusage_runner import run_ccusage_direct
 
@@ -139,7 +140,8 @@ class DataCollector:
                 max_tokens_per_session=max_tokens,
                 last_update=now,
                 billing_period_start=billing_period_start,
-                billing_period_end=billing_period_end
+                billing_period_end=billing_period_end,
+                daemon_version=DAEMON_VERSION
             )
             
         except subprocess.TimeoutExpired:

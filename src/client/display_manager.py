@@ -38,6 +38,7 @@ class DisplayManager:
             total_monthly_sessions: Expected monthly session limit for calculations
         """
         self.total_monthly_sessions = total_monthly_sessions
+        self._screen_cleared = False
 
     def create_progress_bar(self, percentage: float, width: int = 40) -> str:
         """
@@ -72,6 +73,10 @@ class DisplayManager:
     def clear_screen(self):
         """Clear screen and hide cursor like claude_monitor.py."""
         print("\033[H\033[J\033[?25l", end="")
+    
+    def move_to_top(self):
+        """Move cursor to top without clearing screen - prevents flicker."""
+        print("\033[H", end="")
 
     def calculate_token_usage_percentage(self, current_tokens: int, max_tokens: int) -> float:
         """
@@ -200,7 +205,7 @@ class DisplayManager:
         print(f"Current subscription period started: {period_start}\n")
 
     def render_footer(self, current_time: datetime, session_stats: Dict[str, Any],
-                     days_remaining: int, total_cost: float):
+                     days_remaining: int, total_cost: float, daemon_version: Optional[str] = None):
         """
         Render footer with session statistics and cost.
         
@@ -209,6 +214,7 @@ class DisplayManager:
             session_stats: Session usage statistics
             days_remaining: Days remaining in billing period
             total_cost: Total cost for the month
+            daemon_version: Daemon version if available
         """
         print("=" * 60)
         
@@ -220,11 +226,12 @@ class DisplayManager:
             f"💰 Cost (mo): ${total_cost:.2f}"
         )
         
-        # Footer line 2: Days remaining, average usage, exit instruction
+        # Footer line 2: Shortened for better readability
+        version_info = daemon_version if daemon_version else "unknown"
         footer_line2 = (
-            f"  └─ ⏳ {days_remaining} days left "
-            f"(avg. {session_stats['avg_sessions_per_day']:.1f} sessions/day) | "
-            f"Ctrl+C to exit"
+            f"  └─ ⏳ {days_remaining}d left "
+            f"(avg {session_stats['avg_sessions_per_day']:.1f}/day) | "
+            f"🖥️ Server: {version_info} | Ctrl+C exit"
         )
         
         print(footer_line1)
@@ -237,8 +244,12 @@ class DisplayManager:
         Args:
             monitoring_data: Current monitoring data to display
         """
-        # Clear screen
-        self.clear_screen()
+        # Clear screen only on first run, then just move to top
+        if not self._screen_cleared:
+            self.clear_screen()
+            self._screen_cleared = True
+        else:
+            self.move_to_top()
         
         # Header (same as claude_monitor.py)
         print(f"{Colors.HEADER}{Colors.BOLD}✦ ✧ ✦ CLAUDE SESSION MONITOR ✦ ✧ ✦{Colors.ENDC}")
@@ -272,7 +283,7 @@ class DisplayManager:
         
         # Render footer
         self.render_footer(current_time, session_stats, days_remaining, 
-                          monitoring_data.total_cost_this_month)
+                          monitoring_data.total_cost_this_month, monitoring_data.daemon_version)
         
         # Flush output
         sys.stdout.flush()
@@ -317,20 +328,24 @@ class DisplayManager:
         """
         Render full-screen display when daemon is offline, matching claude_monitor.py style.
         """
-        # Clear screen
-        self.clear_screen()
+        # Clear screen only on first run, then just move to top
+        if not self._screen_cleared:
+            self.clear_screen()
+            self._screen_cleared = True
+        else:
+            self.move_to_top()
         
         # Header (same as normal display)
         print(f"{Colors.HEADER}{Colors.BOLD}✦ ✧ ✦ CLAUDE SESSION MONITOR ✦ ✧ ✦{Colors.ENDC}")
         print(f"{Colors.HEADER}{'=' * 35}{Colors.ENDC}\n")
         
-        # Daemon status message
-        print(f"\n{Colors.FAIL}⚠️  DAEMON NOT RUNNING{Colors.ENDC}")
-        print(f"\n{Colors.WARNING}The Claude monitor daemon is currently offline.{Colors.ENDC}")
-        print(f"{Colors.WARNING}Please start the daemon to see real-time monitoring data.{Colors.ENDC}\n")
+        # Server status message
+        print(f"\n{Colors.FAIL}⚠️  SERVER NOT RUNNING{Colors.ENDC}")
+        print(f"\n{Colors.WARNING}The Claude monitor server is currently offline.{Colors.ENDC}")
+        print(f"{Colors.WARNING}Please start the server to see real-time monitoring data.{Colors.ENDC}\n")
         
         # Instructions
-        print(f"{Colors.CYAN}To start the daemon:{Colors.ENDC}")
+        print(f"{Colors.CYAN}To start the server:{Colors.ENDC}")
         print(f"  python3 -m src.daemon.claude_daemon\n")
         print(f"{Colors.CYAN}Or use the original monitor:{Colors.ENDC}")
         print(f"  python3 claude_monitor.py\n")
@@ -338,7 +353,7 @@ class DisplayManager:
         # Footer (simplified)
         current_time = datetime.now()
         print("=" * 60)
-        print(f"⏰ {current_time.strftime('%H:%M:%S')}   🔌 Daemon: {Colors.FAIL}OFFLINE{Colors.ENDC} | Ctrl+C to exit")
+        print(f"⏰ {current_time.strftime('%H:%M:%S')}   🖥️ Server: {Colors.FAIL}OFFLINE{Colors.ENDC} | Ctrl+C exit")
         
         # Flush output
         sys.stdout.flush()

@@ -10,10 +10,12 @@ try:
     from .data_reader import DataReader
     from .display_manager import DisplayManager
     from ..shared.data_models import MonitoringData
+    from ..shared.constants import APP_VERSION
 except ImportError:
     from data_reader import DataReader
     from display_manager import DisplayManager
     from shared.data_models import MonitoringData
+    from shared.constants import APP_VERSION
 
 
 class ClaudeClient:
@@ -144,7 +146,7 @@ class ClaudeClient:
         parser.add_argument(
             "--version",
             action="version",
-            version="Claude Monitor Client 1.0.0"
+            version=f"Claude Monitor Client {APP_VERSION}"
         )
         
         return parser.parse_args(args)

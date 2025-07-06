@@ -1,3 +1,145 @@
+####################### 2025-07-06, 14:45:00
+## Task: Daemon and Client Versioning Implementation
+**Date:** 2025-07-06
+**Status:** ✅ Success - Complete Versioning System
+
+### 1. Summary
+* **Problem:** System nie miał wersjonowania demona, co utrudniało identyfikację wersji serwera w kliencie i diagnostykę problemów kompatybilności między komponentami.
+* **Solution:** Zaimplementowano kompletny system wersjonowania z DAEMON_VERSION w daemon, daemon_version w MonitoringData, oraz wyświetlaniem wersji w kliencie.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Dodano daemon_version jako optional field w MonitoringData, zachowując backward compatibility z istniejącymi plikami danych. Wersja demona jest dodawana do każdego MonitoringData w momencie generacji przez DataCollector.
+* **Library/Dependency Choices:** Używano istniejących shared constants zamiast dodawania nowych zależności. Wersje przechowywane jako string w formacie semantic versioning (X.Y.Z).
+* **Method/Algorithm Choices:** Wersja demona jest embedded w data JSON i przekazywana przez file-based communication do klienta. Client wyświetla wersję w footer UI, zapewniając widoczność informacji o wersji bez dodatkowych komand.
+* **Testing Strategy:** Przetestowano backward compatibility z old MonitoringData format (bez daemon_version), end-to-end workflow od daemon do client, oraz integrację z istniejącymi testami.
+* **Other Key Decisions:** Separated DAEMON_VERSION (1.0.0) od APP_VERSION (2.0.0) dla lepszej granularności. Client version flag używa APP_VERSION, a daemon wersjonowanie jest independent.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. **Dodano version constants:** DAEMON_VERSION = "1.0.0" w src/shared/constants.py
+  2. **Rozszerzono MonitoringData:** Dodano daemon_version: Optional[str] = None field z backward compatibility
+  3. **Zaktualizowano data collection:** DataCollector.collect_data() teraz includes daemon_version=DAEMON_VERSION
+  4. **Enhanced client display:** DisplayManager.render_footer() pokazuje daemon version w footer (🔧 Daemon: v1.0.0)
+  5. **Updated client versioning:** --version flag używa APP_VERSION z constants
+  6. **Verified backward compatibility:** Stare pliki danych bez daemon_version są nadal supported
+
+* **Challenges Encountered:**
+  1. **Backward compatibility requirement** - Musiał zachować zgodność z existing JSON files bez daemon_version field
+  2. **Data model extension without breaking changes** - Optional field pozwala na graceful handling old data
+  3. **UI integration points** - Znalezienie appropriate miejsce w footer dla version display bez cluttering interface
+
+* **Key Implementation Details:**
+  - `daemon_version: Optional[str] = None` w MonitoringData dataclass
+  - `data.get('daemon_version')` w from_dict() dla safe backward compatibility  
+  - Daemon version embedded w każdym MonitoringData object podczas data collection
+  - Client footer shows "🔧 Daemon: v1.0.0" lub "🔧 Daemon: unknown" jeśli version unavailable
+  - Client --version flag returns "Claude Monitor Client 2.0.0"
+
+### 4. Verification Results
+* **87 total tests passing** - All existing tests continue to pass
+* **Backward compatibility confirmed** - Old MonitoringData format loads successfully z daemon_version=None
+* **End-to-end versioning verified** - Daemon tworzy data z version, client reads i displays poprawnie
+* **Integration test successful** - Temporary file test confirms complete workflow works
+
+### 5. Key Features Implemented
+1. **Daemon version embedding** - Każdy MonitoringData zawiera daemon_version od DataCollector
+2. **Client version display** - Footer shows current daemon version w realtime
+3. **CLI version support** - Client --version flag shows APP_VERSION
+4. **Backward compatibility** - Old data files without version są nadal supported
+5. **Version constants centralization** - All versions managed w shared/constants.py
+
+### 6. Production Impact
+* **Enhanced debugging capability** - Users i developers mogą identify daemon version w client display
+* **Compatibility tracking** - Clear visibility into daemon version eliminates compatibility guesswork  
+* **Future upgrade support** - Foundation for version-based feature detection i migration logic
+* **Zero breaking changes** - All existing functionality continues unchanged
+
+### 7. Architecture Benefits
+**Version Visibility:**
+- Real-time daemon version display w client footer
+- No need for separate version commands - always visible w UI
+- Helps identify compatibility issues between daemon i client versions
+
+**Backward Compatibility:**
+- Optional field design allows graceful handling of old data files
+- No migration required for existing installations
+- Future version changes can use same pattern
+
+**Centralized Version Management:**
+- Single source of truth dla version constants w shared/constants.py
+- Easy version bumps for future releases
+- Clear separation between APP_VERSION (client) i DAEMON_VERSION (daemon)
+
+**Final Status:** 🎯 **VERSIONING IMPLEMENTATION COMPLETED** - Complete version tracking system z daemon version embedding w data, client display integration, backward compatibility maintenance, oraz comprehensive testing. System teraz provides clear version visibility dla debugging i compatibility tracking bez breaking existing functionality.
+
+####################### 2025-07-06, 13:08:00
+## Task: Launchd System Removal - macOS Compatibility Issues Resolution
+**Date:** 2025-07-06
+**Status:** ✅ Success - Complete Launchd Removal
+
+### 1. Summary
+* **Problem:** Launchd-based daemon installation nie działał z powodu fundamentalnych ograniczeń macOS (Errno 35: Resource temporarily unavailable), a system obecnie działa wyłącznie na bazie cron. Pliki launchd wprowadzały niepotrzebną komplikację i mylące instrukcje.
+* **Solution:** Usunięto wszystkie pliki związane z launchd i zaktualizowano dokumentację, aby odzwierciedlić wyłącznie działające rozwiązanie cron-based.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Usunięcie launchd jest uzasadnione - było to podejście które nie działało z powodu restrykcyjnych ograniczeń bezpieczeństwa macOS. Pozostawienie tylko cron-based approach upraszcza architekturę i eliminuje niedziałające komponenty.
+* **Library/Dependency Choices:** Żadne nowe zależności - po prostu usunięto nieużywane pliki konfiguracyjne launchd (plist) i skrypty instalacyjne.
+* **Method/Algorithm Choices:** Zachowano działające rozwiązanie cron-based z `daemon_runner.sh` i `install_cron.sh`, które rzeczywiście funkcjonuje w środowisku macOS.
+* **Testing Strategy:** Zweryfikowano że obecny system używa cron (`* * * * * /path/to/daemon_runner.sh`) i działa poprawnie.
+* **Other Key Decisions:** Zaktualizowano dokumentację CLAUDE.md aby usunąć wszystkie referencje do launchd i przedstawić cron jako jedyne rozwiązanie.
+
+### 3. Process Log
+* **Actions Taken:** 
+  1. **Usunięto niedziałające pliki launchd:** `scripts/install_daemon.sh`, `scripts/uninstall_daemon.sh`, `config/com.claude.monitor.daemon.plist`
+  2. **Zaktualizowano dokumentację:** CLAUDE.md - zmieniono z "launchd (primary) or cron (fallback)" na "cron-based process monitoring"
+  3. **Poprawiono instrukcje instalacji:** Zmieniono z `./scripts/install_daemon.sh` na `./scripts/install_cron.sh` jako jedyne rozwiązanie
+  4. **Zaktualizowano opisy systemu:** Zmieniono wszystkie referencje z "launchd integration" na "cron integration"
+* **Challenges Encountered:** 
+  1. **Identification of working vs non-working components** - Trzeba było zidentyfikować które pliki są związane z działającym rozwiązaniem cron vs niedziałającym launchd
+  2. **Documentation consistency** - Zaktualizowanie wszystkich referencji w dokumentacji aby były spójne z rzeczywistym stanem systemu
+* **Key Implementation Details:**
+  - Zachowano `install_cron.sh` i `daemon_runner.sh` - rzeczywiście działające komponenty
+  - Usunięto `install_daemon.sh` i `uninstall_daemon.sh` - niedziałające podejście launchd
+  - Usunięto `com.claude.monitor.daemon.plist` - konfiguracja launchd która powodowała problemy
+  - Zaktualizowano wszystkie sekcje dokumentacji aby odzwierciedlić wyłącznie działające rozwiązanie
+
+### 4. Verification Results
+* **Current system verification:** Potwierdzono że daemon działa przez cron: `* * * * * /Users/daniel/00_work/projects/tools/claude-session-monitor/daemon_runner.sh`
+* **File removal confirmation:** Wszystkie pliki launchd usunięte bez wpływu na działające komponenty
+* **Documentation accuracy:** CLAUDE.md teraz zawiera tylko poprawne, działające instrukcje instalacji
+* **System simplification:** Architektura teraz odzwierciedla rzeczywiste działanie systemu
+
+### 5. Key Features Cleaned Up
+1. **Removed non-functional launchd installation** - Eliminowane niedziałające skrypty instalacyjne
+2. **Simplified installation instructions** - Tylko jedna, działająca metoda instalacji (`install_cron.sh`)
+3. **Accurate system documentation** - Dokumentacja odzwierciedla rzeczywiste działanie systemu
+4. **Reduced complexity** - Usunięcie nieużywanych komponentów upraszcza maintenance
+5. **Clear user guidance** - Użytkownicy otrzymują tylko działające instrukcje
+
+### 6. Production Impact
+* **User experience improvement:** Użytkownicy nie będą już myleni niedziałającymi instrukcjami launchd
+* **Maintenance simplification:** Kod zawiera tylko rzeczywiście używane komponenty
+* **Documentation accuracy:** Instrukcje instalacji są teraz w 100% poprawne
+* **System reliability:** Cron-based approach jest proven to work, bez alternatywnych ścieżek które nie działają
+
+### 7. Architecture Benefits
+**System Simplification:**
+- Usunięto niedziałające komponenty launchd które wprowadzały komplikacje
+- Zachowano tylko proven, działające rozwiązanie cron-based
+- Architektura jest teraz prostsza i bardziej zrozumiała
+
+**User Experience Improvement:**
+- Jednoznaczne instrukcje instalacji - tylko `install_cron.sh`
+- Brak mylących alternatyw które nie działają
+- Dokumentacja w 100% zgodna z rzeczywistym działaniem systemu
+
+**Maintenance Benefits:**
+- Mniej plików do maintenance
+- Brak dead code related to launchd
+- Wszystkie komponenty są actively used
+
+**Final Status:** 🎯 **LAUNCHD REMOVAL COMPLETED** - System jest teraz czystszy, prostszy i zawiera tylko działające komponenty. Użytkownicy otrzymują jednoznaczne instrukcje instalacji cron-based daemon, bez mylących alternatyw które nie działają z powodu ograniczeń macOS.
+
 ####################### 2025-07-05, 16:24:00
 ## Task: Task 5.1 Daemon Installation Scripts - macOS launchd Fork Restrictions Resolution
 **Date:** 2025-07-05

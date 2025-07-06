@@ -212,7 +212,8 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIn("Sessions:", output)
             self.assertIn("15 used, 35 left", output)
             self.assertIn("$125.75", output)
-            self.assertIn("Ctrl+C to exit", output)
+            self.assertIn("Ctrl+C exit", output)
+            self.assertIn("Server:", output)
 
 
 if __name__ == '__main__':
