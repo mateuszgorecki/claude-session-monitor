@@ -8,11 +8,19 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, asdict
 from zoneinfo import ZoneInfo
+from enum import Enum
 
 
 class ValidationError(Exception):
     """Exception raised when data validation fails."""
     pass
+
+
+class ActivitySessionStatus(Enum):
+    """Enumeration of possible activity session statuses."""
+    ACTIVE = "ACTIVE"
+    WAITING = "WAITING"
+    STOPPED = "STOPPED"
 
 
 @dataclass
@@ -98,6 +106,69 @@ class SessionData:
 
 
 @dataclass
+class ActivitySessionData:
+    """Represents data for a Claude Code activity session."""
+    
+    session_id: str
+    start_time: datetime
+    status: str
+    event_type: Optional[str] = None
+    end_time: Optional[datetime] = None
+    metadata: Optional[Dict[str, Any]] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert ActivitySessionData to dictionary."""
+        data = asdict(self)
+        # Convert datetime objects to ISO format strings
+        data['start_time'] = self.start_time.isoformat()
+        data['end_time'] = self.end_time.isoformat() if self.end_time else None
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ActivitySessionData':
+        """Create ActivitySessionData from dictionary."""
+        # Parse datetime strings back to datetime objects
+        start_time = datetime.fromisoformat(data['start_time'])
+        end_time = datetime.fromisoformat(data['end_time']) if data['end_time'] else None
+        
+        return cls(
+            session_id=data['session_id'],
+            start_time=start_time,
+            status=data['status'],
+            event_type=data.get('event_type'),
+            end_time=end_time,
+            metadata=data.get('metadata')
+        )
+    
+    def to_json(self) -> str:
+        """Convert ActivitySessionData to JSON string."""
+        return json.dumps(self.to_dict())
+    
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ActivitySessionData':
+        """Create ActivitySessionData from JSON string."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+    
+    def validate_schema(self) -> bool:
+        """Validate the ActivitySessionData against schema rules."""
+        # Check session_id is not empty
+        if not self.session_id or not self.session_id.strip():
+            raise ValidationError("session_id cannot be empty")
+        
+        # Check status is valid
+        valid_statuses = [status.value for status in ActivitySessionStatus]
+        if self.status not in valid_statuses:
+            raise ValidationError(f"status must be one of {valid_statuses}, got {self.status}")
+        
+        # Check time consistency if both times are provided
+        if self.end_time and self.start_time >= self.end_time:
+            raise ValidationError("end_time must be after start_time")
+        
+        return True
+
+
+@dataclass
 class MonitoringData:
     """Represents aggregated monitoring data for the current period."""
     
@@ -109,6 +180,7 @@ class MonitoringData:
     billing_period_start: datetime
     billing_period_end: datetime
     daemon_version: Optional[str] = None
+    activity_sessions: List[ActivitySessionData] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert MonitoringData to dictionary."""
@@ -120,13 +192,15 @@ class MonitoringData:
             'last_update': self.last_update.isoformat(),
             'billing_period_start': self.billing_period_start.isoformat(),
             'billing_period_end': self.billing_period_end.isoformat(),
-            'daemon_version': self.daemon_version
+            'daemon_version': self.daemon_version,
+            'activity_sessions': [activity.to_dict() for activity in (self.activity_sessions or [])]
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MonitoringData':
         """Create MonitoringData from dictionary."""
         current_sessions = [SessionData.from_dict(session_data) for session_data in data['current_sessions']]
+        activity_sessions = [ActivitySessionData.from_dict(activity_data) for activity_data in data.get('activity_sessions', [])]
         
         return cls(
             current_sessions=current_sessions,
@@ -136,7 +210,8 @@ class MonitoringData:
             last_update=datetime.fromisoformat(data['last_update']),
             billing_period_start=datetime.fromisoformat(data['billing_period_start']),
             billing_period_end=datetime.fromisoformat(data['billing_period_end']),
-            daemon_version=data.get('daemon_version')
+            daemon_version=data.get('daemon_version'),
+            activity_sessions=activity_sessions if activity_sessions else None
         )
     
     def to_json(self) -> str:
@@ -168,6 +243,11 @@ class MonitoringData:
         # Validate all current sessions
         for session in self.current_sessions:
             session.validate_schema()
+        
+        # Validate all activity sessions
+        if self.activity_sessions:
+            for activity_session in self.activity_sessions:
+                activity_session.validate_schema()
         
         return True
 

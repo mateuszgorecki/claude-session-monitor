@@ -34,7 +34,8 @@
       "Bash(sed:*)",
       "Bash(timeout 10 python3:*)",
       "Bash(pkill:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   }
