@@ -184,22 +184,22 @@ claude-session-monitor/
 ### **FAZA 3: Session Activity Tracker**
 
 #### Zadanie 3.1: Implementacja parsera logów hooks
-- [ ] **(RED)** Napisz test sprawdzający parsowanie linii logu JSON z hooks
-- [ ] **(GREEN)** Stwórz `src/daemon/hook_log_parser.py` z klasą `HookLogParser`
-- [ ] **(REFACTOR)** Dodaj obsługę błędnych formatów i corrupted files
-- [ ] **(REPEAT)** Dodaj testy dla różnych formatów logów
+- [x] **(RED)** Napisz test sprawdzający parsowanie linii logu JSON z hooks
+- [x] **(GREEN)** Stwórz `src/daemon/hook_log_parser.py` z klasą `HookLogParser`
+- [x] **(REFACTOR)** Dodaj obsługę błędnych formatów i corrupted files
+- [x] **(REPEAT)** Dodaj testy dla różnych formatów logów
 
 #### Zadanie 3.2: Implementacja activity tracker
-- [ ] **(RED)** Napisz test sprawdzający odczyt plików logów i konwersję do `ActivitySessionData`
-- [ ] **(GREEN)** Stwórz `src/daemon/session_activity_tracker.py` z klasą `SessionActivityTracker`
-- [ ] **(REFACTOR)** Dodaj caching, file watching i batch processing
-- [ ] **(REPEAT)** Dodaj testy dla różnych scenariuszy aktywności
+- [x] **(RED)** Napisz test sprawdzający odczyt plików logów i konwersję do `ActivitySessionData`
+- [x] **(GREEN)** Stwórz `src/daemon/session_activity_tracker.py` z klasą `SessionActivityTracker`
+- [x] **(REFACTOR)** Dodaj caching, file watching i batch processing
+- [x] **(REPEAT)** Dodaj testy dla różnych scenariuszy aktywności
 
 #### Zadanie 3.3: Integracja z data collector
-- [ ] **(RED)** Napisz test sprawdzający, że `DataCollector` łączy dane z ccusage i hooks
-- [ ] **(GREEN)** Rozszerz `src/daemon/data_collector.py` o wywołanie `SessionActivityTracker`
-- [ ] **(REFACTOR)** Dodaj error handling i graceful degradation gdy hooks nie działają
-- [ ] **(REPEAT)** Dodaj testy dla różnych kombinacji danych
+- [x] **(RED)** Napisz test sprawdzający, że `DataCollector` łączy dane z ccusage i hooks
+- [x] **(GREEN)** Rozszerz `src/daemon/data_collector.py` o wywołanie `SessionActivityTracker`
+- [x] **(REFACTOR)** Dodaj error handling i graceful degradation gdy hooks nie działają
+- [x] **(REPEAT)** Dodaj testy dla różnych kombinacji danych
 
 ### **FAZA 4: Rozszerzenie Client Display**
 

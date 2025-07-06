@@ -12,10 +12,11 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus
+from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus, ActivitySessionData
 from shared.constants import DAEMON_VERSION
 from .subprocess_pool import run_ccusage_pooled
 from .ccusage_runner import run_ccusage_direct
+from .session_activity_tracker import SessionActivityTracker
 
 
 class DataCollector:
@@ -42,6 +43,14 @@ class DataCollector:
         else:
             self._max_tokens_per_session = self._persistent_config.get("max_tokens", 35000)
             self.logger.info(f"Loaded max_tokens from config: {self._max_tokens_per_session:,}")
+        
+        # Initialize activity tracker for Claude Code hooks integration
+        try:
+            self._activity_tracker = SessionActivityTracker()
+            self.logger.info("Initialized SessionActivityTracker for hooks integration")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize ActivityTracker: {e}")
+            self._activity_tracker = None
     
     def collect_data(self) -> MonitoringData:
         """
@@ -133,6 +142,9 @@ class DataCollector:
             billing_period_start = datetime.combine(billing_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
             billing_period_end = datetime.combine(billing_end_date, datetime.min.time()).replace(tzinfo=timezone.utc)
             
+            # Collect activity sessions from hooks
+            activity_sessions = self._collect_activity_sessions()
+            
             return MonitoringData(
                 current_sessions=sessions,
                 total_sessions_this_month=len(sessions),
@@ -141,7 +153,8 @@ class DataCollector:
                 last_update=now,
                 billing_period_start=billing_period_start,
                 billing_period_end=billing_period_end,
-                daemon_version=DAEMON_VERSION
+                daemon_version=DAEMON_VERSION,
+                activity_sessions=activity_sessions
             )
             
         except subprocess.TimeoutExpired:
@@ -571,3 +584,48 @@ class DataCollector:
             except Exception:
                 pass
             return 35000
+    
+    def _collect_activity_sessions(self) -> List[ActivitySessionData]:
+        """Collect activity sessions from hooks.
+        
+        Returns:
+            List of activity sessions, empty list if tracker unavailable or fails
+        """
+        if not hasattr(self, '_activity_tracker') or self._activity_tracker is None:
+            return []
+        
+        try:
+            # Update activity tracker with latest log files
+            self._activity_tracker.update_from_log_files()
+            
+            # Get all activity sessions (not just active ones for full history)
+            return self._activity_tracker._active_sessions
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to collect activity sessions: {e}")
+            return []
+    
+    def _handle_activity_session_cleanup(self) -> None:
+        """Handle cleanup of old activity sessions."""
+        if not hasattr(self, '_activity_tracker') or self._activity_tracker is None:
+            return
+        
+        try:
+            self._activity_tracker.cleanup_old_sessions()
+        except Exception as e:
+            self.logger.warning(f"Failed to cleanup activity sessions: {e}")
+    
+    def get_activity_statistics(self) -> Dict[str, Any]:
+        """Get statistics from the activity tracker.
+        
+        Returns:
+            Dictionary of activity tracker statistics
+        """
+        if not hasattr(self, '_activity_tracker') or self._activity_tracker is None:
+            return {}
+        
+        try:
+            return self._activity_tracker.get_statistics()
+        except Exception as e:
+            self.logger.warning(f"Failed to get activity statistics: {e}")
+            return {}
