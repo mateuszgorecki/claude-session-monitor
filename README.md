@@ -157,6 +157,40 @@ You can modify these values in the source code:
 - `INACTIVITY_ALERT_MINUTES = 10` - Notification for idle periods
 - `LOCAL_TZ = ZoneInfo("Europe/Warsaw")` - Default display timezone (can be overridden with --timezone)
 
+### Claude Code Hooks Integration (Optional)
+
+To monitor active Claude Code sessions in real-time, you can configure Claude Code hooks:
+
+1. **Set up hooks configuration:**
+   ```bash
+   # The hooks configuration file is included in the repository
+   # Location: hooks/claude_hooks_config.json
+   ```
+
+2. **Configure Claude Code to use hooks:**
+   ```bash
+   # Set environment variable for activity log file
+   export CLAUDE_ACTIVITY_LOG_FILE="$HOME/.config/claude-monitor/claude_activity.log"
+   
+   # Configure Claude Code hooks (refer to Claude Code documentation)
+   # Point notification hook to: ./hooks/notification_hook.py
+   # Point stop hook to: ./hooks/stop_hook.py
+   # Point subagent_stop hook to: ./hooks/stop_hook.py
+   ```
+
+3. **What hooks provide:**
+   - **Notification Events**: User interactions, waiting states, task completions
+   - **Stop Events**: Session terminations, subagent stops
+   - **Real-time Activity**: Active session tracking beyond billing sessions
+   - **Enhanced Monitoring**: See both 5-hour billing sessions and active work sessions
+
+4. **Hook Scripts:**
+   - `hooks/notification_hook.py` - Processes Claude Code notifications
+   - `hooks/stop_hook.py` - Handles session termination events
+   - `hooks/hook_utils.py` - Shared utilities for thread-safe logging
+
+**Note:** Hooks are optional. The monitor works perfectly without them, tracking only billing sessions from ccusage.
+
 ## Quick Start: Daemon + Client Architecture
 
 ### 🚀 Recommended: Auto-Installation

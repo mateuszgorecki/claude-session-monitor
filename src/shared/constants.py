@@ -123,3 +123,19 @@ SCHEMA_REQUIRED_FIELDS = {
 DEBUG_MODE = False
 VERBOSE_LOGGING = False
 ENABLE_PERFORMANCE_METRICS = False
+
+# Hook System Configuration
+HOOK_LOG_DIR = "~/.config/claude-monitor/hooks"
+HOOK_LOG_FILE_PATTERN = "claude_activity_{date}.log"
+HOOK_LOG_RETENTION_DAYS = 30
+HOOK_LOG_MAX_SIZE_MB = 10
+
+# Hook Scripts Configuration
+HOOK_SCRIPTS_DIR = "hooks"
+HOOK_CONFIG_FILE = "claude_hooks_config.json"
+HOOK_NOTIFICATION_SCRIPT = "notification_hook.py"
+HOOK_STOP_SCRIPT = "stop_hook.py"
+
+# Activity Session Constants
+ACTIVITY_SESSION_STATUSES = ["ACTIVE", "WAITING", "STOPPED"]
+HOOK_EVENT_TYPES = ["notification", "stop", "subagentstop"]
