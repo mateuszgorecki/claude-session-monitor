@@ -1,5 +1,7 @@
 # Claude Session Monitor
 
+**⚠️ macOS Application** - Developed and tested for macOS systems
+
 **Code Authors:** Gemini 2.5 Pro & Claude Code
 **Human Role:** Screenshots + Requirements
 
