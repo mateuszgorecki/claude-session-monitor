@@ -392,8 +392,8 @@ class SessionActivityTracker:
     def cleanup_completed_billing_sessions(self) -> None:
         """Clean up activity sessions that are no longer part of active 5-hour billing window.
         
-        This method checks if all sessions in the log are outside the current 5-hour
-        billing period and clears the log file if so. This prevents accumulation of
+        This method removes sessions older than 5 hours from memory and clears the log file
+        if all sessions are outside the billing window. This prevents accumulation of
         old activity data that's no longer relevant for billing session monitoring.
         """
         from datetime import datetime, timezone
@@ -404,32 +404,43 @@ class SessionActivityTracker:
         cutoff_time = now - timedelta(hours=BILLING_SESSION_HOURS)
         
         with self._session_lock:
-            # Check if all sessions are older than the billing window
+            # Separate recent sessions (within 5h) from old sessions (outside 5h)
             recent_sessions = [
                 session for session in self._active_sessions
                 if session.start_time >= cutoff_time
             ]
             
-            # If no recent sessions, clear the log file completely
-            if not recent_sessions and self._active_sessions:
-                log_dir = os.path.expanduser(HOOK_LOG_DIR)
-                log_file_path = os.path.join(log_dir, HOOK_LOG_FILE_PATTERN)
+            old_sessions = [
+                session for session in self._active_sessions
+                if session.start_time < cutoff_time
+            ]
+            
+            # If there are old sessions to remove
+            if old_sessions:
+                # Update active sessions to only include recent ones
+                self._active_sessions = recent_sessions
                 
-                try:
-                    if os.path.exists(log_file_path):
-                        # Clear the file content (truncate to 0 bytes)
-                        with open(log_file_path, 'w') as f:
-                            pass  # Just open and close to truncate
-                        
-                        self.logger.info(f"Cleared activity log file - all sessions outside 5h billing window")
-                        
-                        # Clear in-memory cache as well
-                        self._active_sessions.clear()
-                        self._file_modification_times.clear()
-                        self._last_cache_update = None
-                        
-                except Exception as e:
-                    self.logger.error(f"Failed to clear activity log file: {e}")
+                self.logger.info(f"Removed {len(old_sessions)} sessions outside 5h billing window")
+                
+                # If ALL sessions were old (no recent sessions), clear the log file completely
+                if not recent_sessions:
+                    log_dir = os.path.expanduser(HOOK_LOG_DIR)
+                    log_file_path = os.path.join(log_dir, HOOK_LOG_FILE_PATTERN)
+                    
+                    try:
+                        if os.path.exists(log_file_path):
+                            # Clear the file content (truncate to 0 bytes)
+                            with open(log_file_path, 'w') as f:
+                                pass  # Just open and close to truncate
+                            
+                            self.logger.info(f"Cleared activity log file - all sessions outside 5h billing window")
+                            
+                            # Clear file modification cache as well
+                            self._file_modification_times.clear()
+                            self._last_cache_update = None
+                            
+                    except Exception as e:
+                        self.logger.error(f"Failed to clear activity log file: {e}")
     
     def __del__(self):
         """Cleanup when tracker is destroyed."""

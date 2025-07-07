@@ -19,6 +19,7 @@ from shared.constants import DEFAULT_CCUSAGE_FETCH_INTERVAL_SECONDS
 from shared.file_manager import DataFileManager
 from .data_collector import DataCollector
 from .notification_manager import NotificationManager
+from .session_activity_tracker import SessionActivityTracker
 from .subprocess_pool import get_subprocess_pool
 
 
@@ -60,6 +61,9 @@ class ClaudeDaemon:
         
         # Notification management component
         self.notification_manager = NotificationManager()
+        
+        # Session activity tracking component
+        self.session_activity_tracker = SessionActivityTracker()
         
         self.logger.info(f"Daemon initialized with fetch interval: {config.ccusage_fetch_interval_seconds}s")
     
@@ -186,6 +190,14 @@ class ClaudeDaemon:
             except Exception as e:
                 self.logger.error(f"Error saving data to file: {e}")
                 # Continue running despite file write errors
+            
+            # Clean up old activity sessions (5h billing window)
+            try:
+                self.session_activity_tracker.cleanup_completed_billing_sessions()
+                self.logger.debug("Activity session cleanup completed")
+            except Exception as e:
+                self.logger.error(f"Error during activity session cleanup: {e}")
+                # Continue running despite cleanup errors
             
             # Check for notification conditions
             self._check_notification_conditions(monitoring_data)

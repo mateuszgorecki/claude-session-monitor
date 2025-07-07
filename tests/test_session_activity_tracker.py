@@ -229,6 +229,137 @@ class TestSessionActivityTracker(unittest.TestCase):
         self.assertEqual(len(self.tracker._active_sessions), 1)
         self.assertEqual(self.tracker._active_sessions[0].session_id, "recent_session")
 
+    def test_billing_window_cleanup_clears_old_sessions_and_log_file(self):
+        """Test cleanup_completed_billing_sessions clears ALL sessions when outside 5h billing window."""
+        # Create sessions that are ALL older than 5 hours (all outside billing window)
+        old_session_1 = ActivitySessionData(
+            project_name="old-project-1",
+            session_id="old_session_1",
+            start_time=datetime.now(timezone.utc) - timedelta(hours=6),  # 6 hours ago (outside 5h window)
+            status=ActivitySessionStatus.STOPPED.value,
+            event_type="stop"
+        )
+        
+        old_session_2 = ActivitySessionData(
+            project_name="old-project-2", 
+            session_id="old_session_2",
+            start_time=datetime.now(timezone.utc) - timedelta(hours=7),  # 7 hours ago (outside 5h window)
+            status=ActivitySessionStatus.INACTIVE.value,
+            event_type="notification"
+        )
+        
+        # Setup tracker with ONLY old sessions (no recent sessions)
+        self.tracker._active_sessions = [old_session_1, old_session_2]
+        
+        # Create a temporary log file to simulate hook activity log
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file_path = os.path.join(temp_dir, HOOK_LOG_FILE_PATTERN)
+            with open(log_file_path, 'w') as f:
+                f.write('{"test": "old data"}\n')
+                f.write('{"test": "more old data"}\n')
+            
+            # Mock the hook log directory to use our temp directory
+            with patch('daemon.session_activity_tracker.HOOK_LOG_DIR', temp_dir):
+                # Call the cleanup method
+                self.tracker.cleanup_completed_billing_sessions()
+                
+                # Check that all old sessions are cleared
+                self.assertEqual(len(self.tracker._active_sessions), 0)
+                
+                # Check that log file is cleared (truncated to 0 bytes)
+                with open(log_file_path, 'r') as f:
+                    content = f.read()
+                    self.assertEqual(content, "", "Log file should be empty after cleanup")
+                
+                # Check that memory cache is reset
+                self.assertEqual(len(self.tracker._file_modification_times), 0)
+                self.assertIsNone(self.tracker._last_cache_update)
+
+    def test_billing_window_cleanup_removes_old_but_preserves_recent(self):
+        """Test cleanup_completed_billing_sessions removes old sessions but preserves recent ones."""
+        # Create mix of old and recent sessions
+        old_session = ActivitySessionData(
+            project_name="old-project",
+            session_id="old_session",
+            start_time=datetime.now(timezone.utc) - timedelta(hours=6),  # 6 hours ago (outside 5h window)
+            status=ActivitySessionStatus.STOPPED.value,
+            event_type="stop"
+        )
+        
+        recent_session = ActivitySessionData(
+            project_name="recent-project",
+            session_id="recent_session",
+            start_time=datetime.now(timezone.utc) - timedelta(hours=2),  # 2 hours ago (within 5h window)
+            status=ActivitySessionStatus.ACTIVE.value,
+            event_type="notification"
+        )
+        
+        # Setup tracker with both old and recent sessions
+        self.tracker._active_sessions = [old_session, recent_session]
+        
+        # Create a temporary log file
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file_path = os.path.join(temp_dir, HOOK_LOG_FILE_PATTERN)
+            with open(log_file_path, 'w') as f:
+                f.write('{"test": "mixed data"}\n')
+            
+            # Mock the hook log directory
+            with patch('daemon.session_activity_tracker.HOOK_LOG_DIR', temp_dir):
+                # Call the cleanup method
+                self.tracker.cleanup_completed_billing_sessions()
+                
+                # Check that only recent session remains
+                self.assertEqual(len(self.tracker._active_sessions), 1)
+                self.assertEqual(self.tracker._active_sessions[0].session_id, "recent_session")
+                
+                # Check that log file is NOT cleared (because recent session exists)
+                with open(log_file_path, 'r') as f:
+                    content = f.read()
+                    self.assertNotEqual(content, "", "Log file should not be empty when recent sessions exist")
+
+    def test_billing_window_cleanup_preserves_recent_sessions(self):
+        """Test cleanup_completed_billing_sessions preserves sessions within 5h billing window."""
+        # Create sessions within the 5-hour billing window
+        recent_session_1 = ActivitySessionData(
+            project_name="recent-project-1",
+            session_id="recent_session_1",
+            start_time=datetime.now(timezone.utc) - timedelta(hours=2),  # 2 hours ago (within 5h window)
+            status=ActivitySessionStatus.ACTIVE.value,
+            event_type="notification"
+        )
+        
+        recent_session_2 = ActivitySessionData(
+            project_name="recent-project-2",
+            session_id="recent_session_2", 
+            start_time=datetime.now(timezone.utc) - timedelta(hours=4),  # 4 hours ago (within 5h window)
+            status=ActivitySessionStatus.WAITING_FOR_USER.value,
+            event_type="stop"
+        )
+        
+        # Setup tracker with recent sessions only
+        self.tracker._active_sessions = [recent_session_1, recent_session_2]
+        
+        # Create a temporary log file
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_file_path = os.path.join(temp_dir, HOOK_LOG_FILE_PATTERN)
+            with open(log_file_path, 'w') as f:
+                f.write('{"test": "recent data"}\n')
+            
+            # Mock the hook log directory 
+            with patch('daemon.session_activity_tracker.HOOK_LOG_DIR', temp_dir):
+                # Call the cleanup method
+                self.tracker.cleanup_completed_billing_sessions()
+                
+                # Check that recent sessions are preserved
+                self.assertEqual(len(self.tracker._active_sessions), 2)
+                self.assertEqual(self.tracker._active_sessions[0].session_id, "recent_session_1")
+                self.assertEqual(self.tracker._active_sessions[1].session_id, "recent_session_2")
+                
+                # Check that log file is NOT cleared (still has content)
+                with open(log_file_path, 'r') as f:
+                    content = f.read()
+                    self.assertNotEqual(content, "", "Log file should not be empty when recent sessions exist")
+
 
 if __name__ == '__main__':
     unittest.main()
