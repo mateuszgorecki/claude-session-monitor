@@ -2,12 +2,12 @@
 
 import sys
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 try:
-    from ..shared.data_models import MonitoringData, SessionData
+    from ..shared.data_models import MonitoringData, SessionData, ActivitySessionData
 except ImportError:
-    from shared.data_models import MonitoringData, SessionData
+    from shared.data_models import MonitoringData, SessionData, ActivitySessionData
 
 
 class Colors:
@@ -39,6 +39,30 @@ class DisplayManager:
         """
         self.total_monthly_sessions = total_monthly_sessions
         self._screen_cleared = False
+        
+        # Activity session display configuration
+        self.activity_config = {
+            "enabled": True,
+            "show_inactive_sessions": True,
+            "max_sessions_displayed": 10,
+            "status_icons": {
+                "ACTIVE": "🔵",
+                "WAITING_FOR_USER": "⏳",
+                "IDLE": "💤", 
+                "INACTIVE": "⚫",
+                "STOPPED": "⛔"
+            },
+            "status_colors": {
+                "ACTIVE": Colors.GREEN,
+                "WAITING_FOR_USER": Colors.WARNING,
+                "IDLE": Colors.CYAN,
+                "INACTIVE": Colors.FAIL,
+                "STOPPED": Colors.FAIL
+            },
+            "max_session_id_length": 12,
+            "show_timestamps": True,
+            "verbosity": "normal"  # "minimal", "normal", "verbose"
+        }
 
     def create_progress_bar(self, percentage: float, width: int = 40) -> str:
         """
@@ -237,6 +261,108 @@ class DisplayManager:
         print(footer_line1)
         print(footer_line2)
 
+    def _render_activity_sessions(self, activity_sessions: List[ActivitySessionData]):
+        """
+        Render Claude Code activity sessions with configurable display options.
+        
+        Args:
+            activity_sessions: List of activity sessions to display
+        """
+        # Check if activity sessions display is enabled
+        if not self.activity_config["enabled"]:
+            return
+        
+        if not activity_sessions:
+            print(f"\n{Colors.CYAN}No activity sessions found{Colors.ENDC}")
+            return
+        
+        # Filter sessions based on configuration
+        filtered_sessions = self._filter_activity_sessions(activity_sessions)
+        
+        if not filtered_sessions:
+            if self.activity_config["verbosity"] != "minimal":
+                print(f"\n{Colors.CYAN}No activity sessions to display{Colors.ENDC}")
+            return
+        
+        # Activity sessions header
+        verbosity = self.activity_config["verbosity"]
+        if verbosity == "minimal":
+            print(f"\n{Colors.HEADER}Activity: {len(filtered_sessions)} sessions{Colors.ENDC}")
+        else:
+            print(f"\n{Colors.HEADER}{Colors.BOLD}CLAUDE CODE ACTIVITY{Colors.ENDC}")
+            print(f"{Colors.HEADER}{'=' * 20}{Colors.ENDC}")
+        
+        # Display sessions based on verbosity
+        for session in filtered_sessions:
+            self._render_single_activity_session(session, verbosity)
+        
+        if verbosity != "minimal":
+            print()  # Empty line after activity sessions
+
+    def _filter_activity_sessions(self, sessions: List[ActivitySessionData]) -> List[ActivitySessionData]:
+        """
+        Filter activity sessions based on configuration.
+        
+        Args:
+            sessions: List of all activity sessions
+            
+        Returns:
+            Filtered list of sessions
+        """
+        filtered = sessions
+        
+        # Filter out inactive sessions if configured
+        if not self.activity_config["show_inactive_sessions"]:
+            filtered = [s for s in filtered if s.status != "INACTIVE"]
+        
+        # Sort by start time (most recent first) and limit
+        filtered = sorted(filtered, key=lambda s: s.start_time, reverse=True)
+        max_sessions = self.activity_config["max_sessions_displayed"]
+        
+        return filtered[:max_sessions]
+
+    def _render_single_activity_session(self, session: ActivitySessionData, verbosity: str):
+        """
+        Render a single activity session based on verbosity level.
+        
+        Args:
+            session: Activity session to render
+            verbosity: Display verbosity level
+        """
+        # Get icon and color from configuration
+        icon = self.activity_config["status_icons"].get(session.status, "❓")
+        color = self.activity_config["status_colors"].get(session.status, Colors.ENDC)
+        
+        # Format session ID with truncation
+        max_length = self.activity_config["max_session_id_length"]
+        session_id_display = session.session_id[:max_length] + "..." if len(session.session_id) > max_length else session.session_id
+        
+        if verbosity == "minimal":
+            # Compact display: just icon and status
+            print(f"{icon} {color}{session.status}{Colors.ENDC}", end=" ")
+        elif verbosity == "normal":
+            # Normal display: icon, session ID, status, optional timestamp
+            time_str = ""
+            if self.activity_config["show_timestamps"]:
+                time_str = f" ({session.start_time.strftime('%H:%M:%S')})"
+            
+            print(f"{icon} {color}{Colors.BOLD}{session_id_display}{Colors.ENDC} - {color}{session.status}{Colors.ENDC}{time_str}")
+        elif verbosity == "verbose":
+            # Verbose display: all details including event type and metadata
+            time_str = session.start_time.strftime('%Y-%m-%d %H:%M:%S')
+            event_info = f" [{session.event_type}]" if session.event_type else ""
+            
+            print(f"{icon} {color}{Colors.BOLD}{session_id_display}{Colors.ENDC}")
+            print(f"   Status: {color}{session.status}{Colors.ENDC} | Time: {time_str}{event_info}")
+            
+            if session.metadata:
+                metadata_str = ", ".join([f"{k}={v}" for k, v in session.metadata.items()])
+                print(f"   Metadata: {metadata_str}")
+        
+        # Add newline for minimal mode after all sessions
+        if verbosity == "minimal":
+            print()  # Single newline at the end
+
     def render_full_display(self, monitoring_data: MonitoringData):
         """
         Render the complete display exactly like claude_monitor.py.
@@ -280,6 +406,10 @@ class DisplayManager:
         else:
             # Render waiting display
             self.render_waiting_display(monitoring_data)
+        
+        # Render activity sessions if available
+        activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
+        self._render_activity_sessions(activity_sessions)
         
         # Render footer
         self.render_footer(current_time, session_stats, days_remaining, 

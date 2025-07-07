@@ -4,7 +4,7 @@ Data models for Claude session monitor.
 Defines structured data classes for session tracking, monitoring data, and configuration.
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, asdict
 from zoneinfo import ZoneInfo
@@ -18,9 +18,11 @@ class ValidationError(Exception):
 
 class ActivitySessionStatus(Enum):
     """Enumeration of possible activity session statuses."""
-    ACTIVE = "ACTIVE"
-    WAITING = "WAITING"
-    STOPPED = "STOPPED"
+    ACTIVE = "ACTIVE"                    # Claude is currently working (non-stop event as last)
+    WAITING_FOR_USER = "WAITING_FOR_USER"  # Recent stop (<2 min), waiting for user input
+    IDLE = "IDLE"                        # Stop 2-30 min ago, user likely away
+    INACTIVE = "INACTIVE"                # Stop >30 min ago, session practically ended
+    STOPPED = "STOPPED"                  # Explicitly stopped session
 
 
 @dataclass
@@ -150,6 +152,53 @@ class ActivitySessionData:
         data = json.loads(json_str)
         return cls.from_dict(data)
     
+    @staticmethod
+    def calculate_smart_status(events: List['ActivitySessionData'], current_time: Optional[datetime] = None) -> str:
+        """Calculate smart session status based on event history using Claude Code hooks logic.
+        
+        Logic:
+        - ACTIVE: Last event is non-stop (Claude is working)
+        - WAITING_FOR_USER: Recent stop (<2 min), waiting for user input  
+        - IDLE: Stop 2-30 min ago, user likely away
+        - INACTIVE: Stop >30 min ago, session practically ended
+        
+        Args:
+            events: List of ActivitySessionData events for this session
+            current_time: Optional current time for testing (defaults to now)
+            
+        Returns:
+            Status string from ActivitySessionStatus enum
+        """
+        if not events:
+            return ActivitySessionStatus.INACTIVE.value
+            
+        if current_time is None:
+            current_time = datetime.now(timezone.utc)
+            
+        # Sort events by timestamp (most recent last)
+        sorted_events = sorted(events, key=lambda e: e.start_time)
+        last_event = sorted_events[-1]
+        
+        # Calculate time since last event
+        if last_event.start_time.tzinfo is None:
+            # If timestamp is naive, assume UTC
+            last_event_time = last_event.start_time.replace(tzinfo=timezone.utc)
+        else:
+            last_event_time = last_event.start_time
+            
+        time_since_last = (current_time - last_event_time).total_seconds() / 60  # minutes
+        
+        # Smart status detection based on last event type and timing
+        if last_event.event_type == "stop":
+            if time_since_last < 2:  # Very recent stop
+                return ActivitySessionStatus.WAITING_FOR_USER.value
+            elif time_since_last < 30:  # Recent but not fresh
+                return ActivitySessionStatus.IDLE.value
+            else:  # Old stop
+                return ActivitySessionStatus.INACTIVE.value
+        else:  # Last event was notification (non-stop)
+            return ActivitySessionStatus.ACTIVE.value
+
     def validate_schema(self) -> bool:
         """Validate the ActivitySessionData against schema rules."""
         # Check session_id is not empty

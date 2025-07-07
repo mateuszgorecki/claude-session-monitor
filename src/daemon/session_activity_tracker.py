@@ -184,34 +184,54 @@ class SessionActivityTracker:
         return self.parser.parse_log_file(file_path)
     
     def _merge_sessions(self, sessions: List[ActivitySessionData]) -> List[ActivitySessionData]:
-        """Merge sessions by session_id to consolidate multiple events.
+        """Merge sessions by session_id and calculate smart status based on event history.
         
-        For each unique session_id, keep the most recent event and merge metadata.
+        Groups events by session_id and uses smart detection to determine session status
+        based on the most recent event type and timing.
         
         Args:
             sessions: List of ActivitySessionData objects to merge
             
         Returns:
-            List of merged ActivitySessionData objects
+            List of merged ActivitySessionData objects with smart status
         """
-        session_map: Dict[str, ActivitySessionData] = {}
+        # Group sessions by session_id
+        session_groups: Dict[str, List[ActivitySessionData]] = {}
         
         for session in sessions:
             session_id = session.session_id
-            
-            if session_id not in session_map:
-                session_map[session_id] = session
-            else:
-                existing_session = session_map[session_id]
-                
-                # Use the most recent event (latest start_time)
-                if session.start_time > existing_session.start_time:
-                    # Keep the newer session but preserve start time from first event
-                    if existing_session.start_time < session.start_time:
-                        session.start_time = existing_session.start_time
-                    session_map[session_id] = session
+            if session_id not in session_groups:
+                session_groups[session_id] = []
+            session_groups[session_id].append(session)
         
-        return list(session_map.values())
+        merged_sessions = []
+        
+        for session_id, events in session_groups.items():
+            # Sort events by timestamp to find earliest and latest
+            sorted_events = sorted(events, key=lambda e: e.start_time)
+            first_event = sorted_events[0]
+            last_event = sorted_events[-1]
+            
+            # Calculate smart status based on event history
+            smart_status = ActivitySessionData.calculate_smart_status(events)
+            
+            # Create merged session with smart status
+            merged_session = ActivitySessionData(
+                session_id=session_id,
+                start_time=first_event.start_time,  # First event time as session start
+                status=smart_status,
+                event_type=last_event.event_type,  # Most recent event type
+                end_time=last_event.start_time if smart_status == ActivitySessionStatus.INACTIVE.value else None,
+                metadata={
+                    'event_count': len(events),
+                    'last_event_time': last_event.start_time.isoformat(),
+                    'events': [{'type': e.event_type, 'time': e.start_time.isoformat()} for e in sorted_events]
+                }
+            )
+            
+            merged_sessions.append(merged_session)
+        
+        return merged_sessions
     
     def start_background_updates(self, update_interval: float = 5.0) -> None:
         """Start background thread for automatic file watching and updates.
