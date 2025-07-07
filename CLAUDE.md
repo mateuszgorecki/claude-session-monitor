@@ -59,7 +59,7 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 ### Package Management
 - **Python Package Manager**: Uses `uv` instead of pip for dependency management
 - **Virtual Environment**: `uv venv` and `uv pip install`
-- **Testing**: `uv run python -m pytest` (87 tests total)
+- **Testing**: `uv run python -m pytest` (271 tests total including integration tests)
 
 ### Running the System
 
@@ -175,4 +175,13 @@ cp claude_widget.js [Scriptable Scripts folder]
 ### Testing Strategy
 - **TDD Approach**: RED-GREEN-REFACTOR cycles for all components
 - **Standard Library Only**: No external test dependencies, uses unittest framework
-- **Comprehensive Coverage**: 242+ tests including hooks, parsers, trackers, and UI components
+- **Comprehensive Coverage**: 271 tests including unit, integration, and lifecycle tests
+- **Integration Testing**: Full session lifecycle testing covering active sessions → cleanup → waiting → new session transitions
+- **Backward Compatibility**: Automated testing ensures all changes maintain compatibility with existing interfaces
+- **Error Handling**: Comprehensive error scenario testing for graceful degradation
+
+### Recent Enhancements (Phase 5)
+- **Integration Tests**: Complete session lifecycle testing with comprehensive coverage of all major transitions
+- **Backward Compatibility**: Verified compatibility with previous versions through automated testing
+- **Error Resilience**: Enhanced error handling and graceful degradation throughout the system
+- **Test Coverage**: Expanded test suite from 87 to 271 tests with integration and lifecycle coverage
