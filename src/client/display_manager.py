@@ -565,6 +565,10 @@ class DisplayManager:
         session_state_changed = (self._previous_session_state == "active" and 
                                 current_session_state == "waiting")
         
+        # Check for main session state transitions that require screen clearing
+        main_session_state_changed = (self._previous_session_state is not None and 
+                                     self._previous_session_state != current_session_state)
+        
         # Check for activity session status changes - will play audio after screen refresh
         activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
         activity_status_changed = self._check_activity_session_changes_without_audio(activity_sessions)
@@ -572,8 +576,8 @@ class DisplayManager:
         # Update previous session state
         self._previous_session_state = current_session_state
         
-        # Clear screen on first run or when activity sessions change, otherwise just move to top
-        if not self._screen_cleared or sessions_changed:
+        # Clear screen on first run, when activity sessions change, or when main session state changes
+        if not self._screen_cleared or sessions_changed or main_session_state_changed:
             self.clear_screen()
             self._screen_cleared = True
         else:

@@ -142,15 +142,15 @@ claude-session-monitor/
 ### Faza 3: Poprawa Czyszczenia Ekranu
 
 #### Zadanie 3.1: Implementacja pełnego czyszczenia ekranu przy przejściach
-- [ ] **(RED)** Napisz test `test_screen_clear_on_transition` sprawdzający czy:
+- [x] **(RED)** Napisz test `test_screen_clear_on_transition` sprawdzający czy:
   - Przy przejściu z aktywnej sesji do "waiting" ekran jest w pełni czyszczony
   - Nie pozostają "śmieci" z poprzedniego stanu
-- [ ] Uruchom test i potwierdź, że obecna logika nie czyści ekranu w pełni
-- [ ] **(GREEN)** Zmodyfikuj `display_manager.py` aby:
+- [x] Uruchom test i potwierdź, że obecna logika nie czyści ekranu w pełni
+- [x] **(GREEN)** Zmodyfikuj `display_manager.py` aby:
   - Wykrywała przejścia między stanami sesji
   - Wywoływała `clear_screen()` zamiast `move_to_top()` przy przejściach
   - Zachowywała optimizację anti-flicker dla normalnych aktualizacji
-- [ ] **(REFACTOR)** Dodaj flagę `_force_clear_needed` do śledzenia kiedy wymagane jest pełne czyszczenie
+- [x] **(REFACTOR)** Dodaj flagę `_force_clear_needed` do śledzenia kiedy wymagane jest pełne czyszczenie
 
 ### Faza 4: Implementacja Sugestii Timing'u
 
