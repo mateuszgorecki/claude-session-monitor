@@ -173,19 +173,19 @@ claude-session-monitor/
 ### Faza 5: Testy Integracyjne i Finalizacja
 
 #### Zadanie 5.1: Kompleksowe testy integracyjne
-- [ ] **(RED)** Napisz test `test_full_session_lifecycle` sprawdzający:
+- [x] **(RED)** Napisz test `test_full_session_lifecycle` sprawdzający:
   - Pełny cykl: sesja aktywna → koniec 5h okna → czyszczenie → waiting → nowa sesja
   - Poprawne czyszczenie ekranu przy każdym przejściu
   - Wyświetlanie sugestii timing'u w stanie waiting
-- [ ] Uruchom test i potwierdź integrację wszystkich komponentów
-- [ ] **(GREEN)** Napraw ewentualne problemy integracyjne
-- [ ] **(REFACTOR)** Optymalizuj wydajność i dodaj metryki
+- [x] Uruchom test i potwierdź integrację wszystkich komponentów
+- [x] **(GREEN)** Napraw ewentualne problemy integracyjne
+- [x] **(REFACTOR)** Optymalizuj wydajność i dodaj metryki
 
 #### Zadanie 5.2: Walidacja i dokumentacja
-- [ ] **(RED)** Napisz test `test_backward_compatibility` sprawdzający zgodność z poprzednią wersją
-- [ ] Uruchom wszystkie testy (87+ testów) i potwierdź, że przechodzą
-- [ ] **(GREEN)** Zaktualizuj dokumentację w `CLAUDE.md` i `README.md`
-- [ ] **(REFACTOR)** Przejrzyj kod pod kątem code review i optymalizacji
+- [x] **(RED)** Napisz test `test_backward_compatibility` sprawdzający zgodność z poprzednią wersją
+- [x] Uruchom wszystkie testy (271 testów) i potwierdź, że przechodzą
+- [x] **(GREEN)** Zaktualizuj dokumentację w `CLAUDE.md` i `README.md`
+- [x] **(REFACTOR)** Przejrzyj kod pod kątem code review i optymalizacji
 
 ### Kryteria Ukończenia Sekcji:
 - [x] Wszystkie fazy są logicznie uporządkowane
