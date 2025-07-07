@@ -656,6 +656,67 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIn("test_project", output)  # Project name
             self.assertIn("ACTIVE", output)
 
+    def test_screen_clear_on_transition(self):
+        """Test that screen is cleared when transitioning between active and waiting states (RED test)."""
+        # Create a display manager with mock print output
+        display_manager = DisplayManager()
+        
+        # Mock the clear_screen and move_to_top methods to track calls
+        with patch.object(display_manager, 'clear_screen') as mock_clear, \
+             patch.object(display_manager, 'move_to_top') as mock_move, \
+             patch('sys.stdout', new=io.StringIO()):
+            
+            # First render: active session (should clear screen on first run)
+            display_manager.render_full_display(self.monitoring_data_active)
+            
+            # Verify initial clear was called
+            self.assertEqual(mock_clear.call_count, 1)
+            self.assertEqual(mock_move.call_count, 0)
+            
+            # Reset mock call counts
+            mock_clear.reset_mock()
+            mock_move.reset_mock()
+            
+            # Second render: same active session (should only move to top)
+            display_manager.render_full_display(self.monitoring_data_active)
+            
+            # Should only move to top, not clear screen
+            self.assertEqual(mock_clear.call_count, 0)
+            self.assertEqual(mock_move.call_count, 1)
+            
+            # Reset mock call counts
+            mock_clear.reset_mock()
+            mock_move.reset_mock()
+            
+            # Third render: transition to waiting state (should clear screen)
+            display_manager.render_full_display(self.monitoring_data_waiting)
+            
+            # Should clear screen due to state transition, not just move to top
+            self.assertEqual(mock_clear.call_count, 1)
+            self.assertEqual(mock_move.call_count, 0)
+            
+            # Reset mock call counts
+            mock_clear.reset_mock()
+            mock_move.reset_mock()
+            
+            # Fourth render: same waiting state (should only move to top)
+            display_manager.render_full_display(self.monitoring_data_waiting)
+            
+            # Should only move to top, not clear screen
+            self.assertEqual(mock_clear.call_count, 0)
+            self.assertEqual(mock_move.call_count, 1)
+            
+            # Reset mock call counts
+            mock_clear.reset_mock()
+            mock_move.reset_mock()
+            
+            # Fifth render: transition back to active state (should clear screen)
+            display_manager.render_full_display(self.monitoring_data_active)
+            
+            # Should clear screen due to state transition, not just move to top
+            self.assertEqual(mock_clear.call_count, 1)
+            self.assertEqual(mock_move.call_count, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

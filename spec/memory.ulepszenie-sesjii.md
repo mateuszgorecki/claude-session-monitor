@@ -69,3 +69,56 @@ Current state analysis:
 
 **New Dependencies:** 
 None - all changes used existing Python standard library and project infrastructure.
+
+####################### 2025-07-07, 16:39:00
+## Task: Phase 3 - Screen Cleaning Improvements
+**Date:** 2025-07-07
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Screen "garbage" remains when transitioning between active and waiting session states due to anti-flicker optimization that only clears screen on activity session changes, not main session state changes
+* **Solution:** Enhanced screen clearing logic to detect main session state transitions (active ↔ waiting) and force full screen clear during these transitions while preserving existing anti-flicker behavior for normal updates
+
+### 2. Reasoning & Justification
+
+**Architectural Choices:**
+- **Incremental Enhancement over Rewrite**: Extended the existing screen clearing logic in `render_full_display()` method rather than creating a new display architecture. This maintains backward compatibility and leverages the existing anti-flicker system.
+- **State Transition Detection Pattern**: Added `main_session_state_changed` detection alongside existing `sessions_changed` logic, following the same pattern used for audio signal detection. This provides consistent state change handling across the system.
+- **Preserving Anti-flicker Design**: Maintained the existing `self._screen_cleared` flag and `move_to_top()` optimization for normal updates, only forcing `clear_screen()` when state transitions occur.
+
+**Method/Algorithm Choices:**
+- **Dual Condition Logic**: Used separate detection for activity session changes (`sessions_changed`) and main session state changes (`main_session_state_changed`) to handle different types of screen refresh scenarios appropriately.
+- **Previous State Tracking**: Extended the existing `_previous_session_state` tracking to detect transitions, similar to how `_previous_activity_sessions` works for activity session changes.
+- **Null-safe State Comparison**: Added null check (`self._previous_session_state is not None`) to prevent false positives on first render when previous state hasn't been established.
+
+**Testing Strategy:**
+- **TDD Methodology**: Followed strict RED-GREEN-REFACTOR approach with comprehensive test `test_screen_clear_on_transition` that covers multiple transition scenarios: first render, same state (anti-flicker), and bi-directional state transitions.
+- **Mock-based Testing**: Used `unittest.mock.patch.object` to isolate and verify specific method calls (`clear_screen()` vs `move_to_top()`) without depending on actual screen output, ensuring precise behavior verification.
+- **State Transition Coverage**: Tested complete cycle: active → active (no clear), active → waiting (clear), waiting → waiting (no clear), waiting → active (clear) to ensure all transition scenarios work correctly.
+
+**Library/Dependency Choices:**
+- **Standard Library Only**: No new dependencies added, maintaining the project's philosophy of using only Python standard library. Used existing `unittest.mock` for testing isolation.
+- **Existing Infrastructure**: Leveraged existing `Colors`, `DisplayManager` class structure, and `MonitoringData` test fixtures to ensure consistency with project patterns.
+
+**Other Key Decisions:**
+- **Granular State Detection**: Added `main_session_state_changed` as a separate condition rather than modifying the existing `sessions_changed` logic, ensuring that each type of change can be handled independently and debugged separately.
+- **Immediate State Update**: Continued updating `_previous_session_state` before screen clearing decision to ensure state tracking remains accurate for subsequent calls.
+- **Backwards Compatibility**: Ensured all existing screen clearing behavior remains unchanged - first run still clears, activity session changes still clear, only added new clearing for main session state transitions.
+
+### 3. Process Log
+
+**Actions Taken:**
+1. Analyzed existing `render_full_display()` method to understand current screen clearing logic (lines 575-580)
+2. Created comprehensive TDD test `test_screen_clear_on_transition` with 5 transition scenarios
+3. Verified test fails (RED phase) - confirmed current logic doesn't clear screen on state transitions
+4. Implemented fix by adding `main_session_state_changed` detection and extending clearing condition
+5. Verified test passes (GREEN phase) and all existing display manager tests continue to pass
+6. Ran integration tests to ensure no regressions in broader system
+
+**Challenges Encountered:**
+- Initial analysis revealed the anti-flicker system was designed primarily for activity session changes, not main session state transitions
+- Had to carefully balance preserving the anti-flicker optimization while adding necessary screen clearing for state transitions
+- Test design required precise mocking to verify method calls without interfering with actual output
+
+**New Dependencies:** 
+None - all changes used existing Python standard library and unittest framework infrastructure.
