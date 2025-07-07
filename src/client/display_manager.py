@@ -380,6 +380,37 @@ class DisplayManager:
         # Update previous statuses
         self._previous_activity_session_statuses = current_statuses.copy()
 
+    def _check_activity_session_changes_without_audio(self, activity_sessions: List[ActivitySessionData]) -> bool:
+        """
+        Check for activity session status changes that should trigger audio signal, but don't play it.
+        
+        Args:
+            activity_sessions: Current list of activity sessions
+            
+        Returns:
+            bool: True if there's a status change that should trigger audio, False otherwise
+        """
+        # Track current session statuses
+        current_statuses = {}
+        for session in activity_sessions:
+            session_key = f"{session.project_name}_{session.session_id}"
+            current_statuses[session_key] = session.status
+        
+        # Check for status changes that should trigger audio signal
+        audio_signal_needed = False
+        for session_key, current_status in current_statuses.items():
+            if session_key in self._previous_activity_session_statuses:
+                previous_status = self._previous_activity_session_statuses[session_key]
+                # Check for transition from ACTIVE to WAITING_FOR_USER
+                if (previous_status == "ACTIVE" and current_status == "WAITING_FOR_USER"):
+                    audio_signal_needed = True
+                    break  # Only need to detect once per update cycle
+        
+        # Update previous statuses
+        self._previous_activity_session_statuses = current_statuses.copy()
+        
+        return audio_signal_needed
+
     def _has_activity_sessions_changed(self, current_sessions: List[ActivitySessionData]) -> bool:
         """
         Check if activity sessions have changed (status, count, or sessions themselves).
@@ -524,6 +555,23 @@ class DisplayManager:
         activity_sessions = monitoring_data.activity_sessions or []
         sessions_changed = self._has_activity_sessions_changed(activity_sessions)
         
+        # Check for active session
+        active_session = self.find_active_session(monitoring_data)
+        
+        # Determine current session state
+        current_session_state = "active" if active_session else "waiting"
+        
+        # Check if state changed from active to waiting - will play audio after screen refresh
+        session_state_changed = (self._previous_session_state == "active" and 
+                                current_session_state == "waiting")
+        
+        # Check for activity session status changes - will play audio after screen refresh
+        activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
+        activity_status_changed = self._check_activity_session_changes_without_audio(activity_sessions)
+        
+        # Update previous session state
+        self._previous_session_state = current_session_state
+        
         # Clear screen on first run or when activity sessions change, otherwise just move to top
         if not self._screen_cleared or sessions_changed:
             self.clear_screen()
@@ -551,24 +599,6 @@ class DisplayManager:
             days_remaining
         )
         
-        # Check for active session
-        active_session = self.find_active_session(monitoring_data)
-        
-        # Determine current session state
-        current_session_state = "active" if active_session else "waiting"
-        
-        # Check if state changed from active to waiting and play audio signal
-        if (self._previous_session_state == "active" and 
-            current_session_state == "waiting"):
-            self.play_audio_signal()
-        
-        # Check for activity session status changes and play audio signal
-        activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
-        self._check_activity_session_changes(activity_sessions)
-        
-        # Update previous session state
-        self._previous_session_state = current_session_state
-        
         if active_session:
             # Render active session display
             self.render_active_session_display(monitoring_data, active_session)
@@ -584,8 +614,15 @@ class DisplayManager:
         self.render_footer(current_time, session_stats, days_remaining, 
                           monitoring_data.total_cost_this_month, monitoring_data.daemon_version)
         
-        # Flush output
+        # Flush output to ensure screen refresh is complete
         sys.stdout.flush()
+        
+        # Play audio signals AFTER screen refresh is complete
+        if session_state_changed:
+            self.play_audio_signal()
+        
+        if activity_status_changed:
+            self.play_audio_signal()
         
         # Return whether data refresh is needed
         return sessions_changed

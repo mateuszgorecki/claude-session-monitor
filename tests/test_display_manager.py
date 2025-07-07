@@ -290,7 +290,7 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIn("🔵", output)  # ACTIVE icon
             self.assertIn("⏳", output)  # WAITING_FOR_USER icon
             self.assertIn("💤", output)  # IDLE icon
-            self.assertIn("⚫", output)  # INACTIVE icon
+            self.assertIn("⛔", output)  # INACTIVE icon
             
             # Check for project names (truncated for display)
             self.assertIn("test_project", output)
@@ -402,7 +402,7 @@ class TestDisplayManager(unittest.TestCase):
             # Check for different icons
             self.assertIn("🔵", output)  # ACTIVE
             self.assertIn("⏳", output)  # WAITING_FOR_USER
-            self.assertIn("⚫", output)  # INACTIVE
+            self.assertIn("⛔", output)  # INACTIVE
             
             # Check for all sessions with project names
             self.assertIn("test_project", output)
