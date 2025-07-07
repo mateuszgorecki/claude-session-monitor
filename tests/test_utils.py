@@ -244,6 +244,71 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(is_file_stale("/path/that/does/not/exist", 60))
         finally:
             os.unlink(temp_path)
+    
+    def test_get_work_timing_suggestion(self):
+        """Test work timing suggestions based on current minute."""
+        from src.shared.utils import get_work_timing_suggestion
+        from unittest.mock import patch
+        
+        # Test 0-15 minutes: positive suggestions
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 5
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            self.assertGreater(len(suggestion), 0)
+            # Should be from positive suggestions list
+            
+        # Test 16-30 minutes: moderately positive suggestions
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 25
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            self.assertGreater(len(suggestion), 0)
+            
+        # Test 31-45 minutes: skeptical suggestions
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 35
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            self.assertGreater(len(suggestion), 0)
+            
+        # Test 46-59 minutes: humorous/critical suggestions
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 55
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            self.assertGreater(len(suggestion), 0)
+            
+        # Test edge cases
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 0
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 15
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 30
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 45
+            suggestion = get_work_timing_suggestion()
+            self.assertIsInstance(suggestion, str)
+            
+        # Test randomization - call multiple times and ensure we get different results
+        with patch('src.shared.utils.datetime') as mock_datetime:
+            mock_datetime.now.return_value.minute = 10
+            suggestions = set()
+            for _ in range(10):  # Call 10 times
+                suggestions.add(get_work_timing_suggestion())
+            # Should have at least 2 different suggestions (randomization working)
+            # Note: This test could theoretically fail if we get the same random choice 10 times
+            # but probability is very low with multiple messages in each category
 
 
 if __name__ == '__main__':

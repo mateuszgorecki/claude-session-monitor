@@ -1,0 +1,14 @@
+{
+  "notification": {
+    "script": "./hooks/notification_hook.py",
+    "description": "Logs Claude Code notifications to activity log for session monitoring"
+  },
+  "stop": {
+    "script": "./hooks/stop_hook.py",
+    "description": "Logs Claude Code stop events to activity log for session monitoring"
+  },
+  "subagent_stop": {
+    "script": "./hooks/stop_hook.py",
+    "description": "Logs Claude Code subagent stop events to activity log for session monitoring"
+  }
+}

@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
 import sys
+import subprocess
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 try:
-    from ..shared.data_models import MonitoringData, SessionData
+    from ..shared.data_models import MonitoringData, SessionData, ActivitySessionData
+    from ..shared.utils import get_work_timing_suggestion
 except ImportError:
-    from shared.data_models import MonitoringData, SessionData
+    from shared.data_models import MonitoringData, SessionData, ActivitySessionData
+    from shared.utils import get_work_timing_suggestion
 
 
 class Colors:
@@ -39,6 +42,54 @@ class DisplayManager:
         """
         self.total_monthly_sessions = total_monthly_sessions
         self._screen_cleared = False
+        self._previous_activity_sessions = {}  # Track previous session states for change detection
+        self._previous_session_state = None  # Track previous session state (active/waiting)
+        self._previous_activity_session_statuses = {}  # Track activity session statuses for audio signals
+        self._waiting_for_user_timestamps = {}  # Track when sessions entered WAITING_FOR_USER state
+        
+        # Activity session display configuration
+        self.activity_config = {
+            "enabled": True,
+            "show_inactive_sessions": True,
+            "max_sessions_displayed": 10,
+            "status_icons": {
+                "ACTIVE": "🔵",
+                "WAITING_FOR_USER": "⏳",
+                "IDLE": "💤", 
+                "INACTIVE": "⛔",
+                "STOPPED": "⛔"
+            },
+            "status_colors": {
+                "ACTIVE": Colors.GREEN,
+                "WAITING_FOR_USER": Colors.WARNING,
+                "IDLE": Colors.CYAN,
+                "INACTIVE": Colors.FAIL,
+                "STOPPED": Colors.FAIL
+            },
+            "max_project_name_length": 50,
+            "show_timestamps": True,
+            "verbosity": "normal"  # "minimal", "normal", "verbose"
+        }
+
+    def play_audio_signal(self):
+        """Play a short audio signal using system beep - two quick beeps."""
+        try:
+            # Use osascript for better SSH compatibility (plays on host)
+            subprocess.run(['osascript', '-e', 'beep 2'], 
+                          check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            # Fallback to afplay for local sessions - play twice quickly
+            try:
+                subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
+                              check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
+                              check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                # Final fallback to terminal bell - two quick beeps
+                try:
+                    print('\a\a', end='', flush=True)
+                except Exception:
+                    pass  # Ignore if audio signal fails
 
     def create_progress_bar(self, percentage: float, width: int = 40) -> str:
         """
@@ -202,7 +253,23 @@ class DisplayManager:
         
         # Show current subscription period start
         period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
-        print(f"Current subscription period started: {period_start}\n")
+        print(f"Current subscription period started: {period_start}")
+        
+        # Show timing suggestion
+        timing_suggestion = get_work_timing_suggestion()
+        current_minute = datetime.now().minute
+        
+        # Color coding based on time range
+        if current_minute <= 15:
+            color = Colors.GREEN  # Positive - green
+        elif current_minute <= 30:
+            color = Colors.CYAN   # Moderate - cyan
+        elif current_minute <= 45:
+            color = Colors.WARNING  # Skeptical - yellow
+        else:
+            color = Colors.FAIL   # Critical - red
+            
+        print(f"\n{color}Timing suggestion: {timing_suggestion}{Colors.ENDC}\n")
 
     def render_footer(self, current_time: datetime, session_stats: Dict[str, Any],
                      days_remaining: int, total_cost: float, daemon_version: Optional[str] = None):
@@ -237,15 +304,355 @@ class DisplayManager:
         print(footer_line1)
         print(footer_line2)
 
+    def _render_activity_sessions(self, activity_sessions: List[ActivitySessionData]):
+        """
+        Render Claude Code activity sessions with configurable display options.
+        
+        Args:
+            activity_sessions: List of activity sessions to display
+        """
+        # Check if activity sessions display is enabled
+        if not self.activity_config["enabled"]:
+            return
+        
+        if not activity_sessions:
+            print(f"\n{Colors.CYAN}No activity sessions found{Colors.ENDC}")
+            return
+        
+        # Filter sessions based on configuration
+        filtered_sessions = self._filter_activity_sessions(activity_sessions)
+        
+        if not filtered_sessions:
+            if self.activity_config["verbosity"] != "minimal":
+                print(f"\n{Colors.CYAN}No activity sessions to display{Colors.ENDC}")
+            return
+        
+        # Calculate dynamic alignment based on longest project name
+        max_length = self.activity_config["max_project_name_length"]
+        longest_display_name = 0
+        for session in filtered_sessions:
+            display_name = session.project_name[:max_length] + "..." if len(session.project_name) > max_length else session.project_name
+            longest_display_name = max(longest_display_name, len(display_name))
+        
+        # Add one space for separator before dash
+        longest_display_name += 1
+        
+        # Activity sessions header
+        verbosity = self.activity_config["verbosity"]
+        if verbosity == "minimal":
+            print(f"\n{Colors.HEADER}Activity: {len(filtered_sessions)} sessions{Colors.ENDC}")
+        else:
+            print(f"\n{Colors.HEADER}{Colors.BOLD}CLAUDE CODE ACTIVITY{Colors.ENDC}")
+            print(f"{Colors.HEADER}{'=' * 20}{Colors.ENDC}")
+        
+        # Display sessions based on verbosity
+        for session in filtered_sessions:
+            self._render_single_activity_session(session, verbosity, longest_display_name)
+        
+        if verbosity != "minimal":
+            print()  # Empty line after activity sessions
+
+    def _filter_activity_sessions(self, sessions: List[ActivitySessionData]) -> List[ActivitySessionData]:
+        """
+        Filter activity sessions based on configuration.
+        
+        Args:
+            sessions: List of all activity sessions
+            
+        Returns:
+            Filtered list of sessions
+        """
+        filtered = sessions
+        
+        # Filter out inactive sessions if configured
+        if not self.activity_config["show_inactive_sessions"]:
+            filtered = [s for s in filtered if s.status != "INACTIVE"]
+        
+        # Sort by start time (most recent first) and limit
+        filtered = sorted(filtered, key=lambda s: s.start_time, reverse=True)
+        max_sessions = self.activity_config["max_sessions_displayed"]
+        
+        return filtered[:max_sessions]
+
+    def _check_activity_session_changes(self, activity_sessions: List[ActivitySessionData]):
+        """
+        Check for activity session status changes and play audio signal when WAITING_FOR_USER lasts >=30 seconds.
+        
+        Args:
+            activity_sessions: Current list of activity sessions
+        """
+        from datetime import datetime, timezone
+        
+        # Track current session statuses
+        current_statuses = {}
+        for session in activity_sessions:
+            session_key = f"{session.project_name}_{session.session_id}"
+            current_statuses[session_key] = session.status
+        
+        current_time = datetime.now(timezone.utc)
+        
+        # Check for status changes and track WAITING_FOR_USER timestamps
+        for session_key, current_status in current_statuses.items():
+            if session_key in self._previous_activity_session_statuses:
+                previous_status = self._previous_activity_session_statuses[session_key]
+                
+                # Track when session enters WAITING_FOR_USER state
+                if (previous_status == "ACTIVE" and current_status == "WAITING_FOR_USER"):
+                    self._waiting_for_user_timestamps[session_key] = current_time
+                
+                # Remove timestamp if session leaves WAITING_FOR_USER state
+                elif (previous_status == "WAITING_FOR_USER" and current_status != "WAITING_FOR_USER"):
+                    if session_key in self._waiting_for_user_timestamps:
+                        del self._waiting_for_user_timestamps[session_key]
+        
+        # Check for WAITING_FOR_USER sessions that have lasted >=30 seconds
+        for session_key, current_status in current_statuses.items():
+            if (current_status == "WAITING_FOR_USER" and 
+                session_key in self._waiting_for_user_timestamps):
+                
+                wait_duration = current_time - self._waiting_for_user_timestamps[session_key]
+                if wait_duration.total_seconds() >= 30:
+                    self.play_audio_signal()
+                    # Remove timestamp to prevent repeated audio signals
+                    del self._waiting_for_user_timestamps[session_key]
+                    break  # Only play once per update cycle
+        
+        # Clean up timestamps for sessions that no longer exist
+        existing_sessions = set(current_statuses.keys())
+        timestamps_to_remove = [key for key in self._waiting_for_user_timestamps.keys() 
+                               if key not in existing_sessions]
+        for key in timestamps_to_remove:
+            del self._waiting_for_user_timestamps[key]
+        
+        # Update previous statuses
+        self._previous_activity_session_statuses = current_statuses.copy()
+
+    def _check_activity_session_changes_without_audio(self, activity_sessions: List[ActivitySessionData]) -> bool:
+        """
+        Check for activity session status changes that should trigger audio signal, but don't play it.
+        
+        Args:
+            activity_sessions: Current list of activity sessions
+            
+        Returns:
+            bool: True if there's a status change that should trigger audio (WAITING_FOR_USER >=30s), False otherwise
+        """
+        from datetime import datetime, timezone
+        
+        # Track current session statuses
+        current_statuses = {}
+        for session in activity_sessions:
+            session_key = f"{session.project_name}_{session.session_id}"
+            current_statuses[session_key] = session.status
+        
+        current_time = datetime.now(timezone.utc)
+        
+        # Check for status changes and track WAITING_FOR_USER timestamps
+        for session_key, current_status in current_statuses.items():
+            if session_key in self._previous_activity_session_statuses:
+                previous_status = self._previous_activity_session_statuses[session_key]
+                
+                # Track when session enters WAITING_FOR_USER state
+                if (previous_status == "ACTIVE" and current_status == "WAITING_FOR_USER"):
+                    self._waiting_for_user_timestamps[session_key] = current_time
+                
+                # Remove timestamp if session leaves WAITING_FOR_USER state
+                elif (previous_status == "WAITING_FOR_USER" and current_status != "WAITING_FOR_USER"):
+                    if session_key in self._waiting_for_user_timestamps:
+                        del self._waiting_for_user_timestamps[session_key]
+        
+        # Check for WAITING_FOR_USER sessions that have lasted >=30 seconds
+        audio_signal_needed = False
+        for session_key, current_status in current_statuses.items():
+            if (current_status == "WAITING_FOR_USER" and 
+                session_key in self._waiting_for_user_timestamps):
+                
+                wait_duration = current_time - self._waiting_for_user_timestamps[session_key]
+                if wait_duration.total_seconds() >= 30:
+                    audio_signal_needed = True
+                    # Remove timestamp to prevent repeated audio signals
+                    del self._waiting_for_user_timestamps[session_key]
+                    break  # Only need to detect once per update cycle
+        
+        # Clean up timestamps for sessions that no longer exist
+        existing_sessions = set(current_statuses.keys())
+        timestamps_to_remove = [key for key in self._waiting_for_user_timestamps.keys() 
+                               if key not in existing_sessions]
+        for key in timestamps_to_remove:
+            del self._waiting_for_user_timestamps[key]
+        
+        # Update previous statuses
+        self._previous_activity_session_statuses = current_statuses.copy()
+        
+        return audio_signal_needed
+
+    def _has_activity_sessions_changed(self, current_sessions: List[ActivitySessionData]) -> bool:
+        """
+        Check if activity sessions have changed (status, count, or sessions themselves).
+        
+        Args:
+            current_sessions: Current list of activity sessions
+            
+        Returns:
+            True if sessions have changed, False otherwise
+        """
+        # Create current session state map
+        current_state = {}
+        for session in current_sessions:
+            session_key = f"{session.project_name}_{session.session_id}"
+            current_state[session_key] = session.status
+        
+        # Check if session count changed
+        if len(current_state) != len(self._previous_activity_sessions):
+            self._previous_activity_sessions = current_state
+            return True
+        
+        # Check if any session status changed or new sessions appeared
+        for session_key, status in current_state.items():
+            if session_key not in self._previous_activity_sessions:
+                # New session appeared
+                self._previous_activity_sessions = current_state
+                return True
+            elif self._previous_activity_sessions[session_key] != status:
+                # Status changed
+                self._previous_activity_sessions = current_state
+                return True
+        
+        # Check if any sessions disappeared
+        for session_key in self._previous_activity_sessions:
+            if session_key not in current_state:
+                # Session disappeared
+                self._previous_activity_sessions = current_state
+                return True
+        
+        # No changes detected
+        return False
+
+    def _get_activity_time_str(self, session: ActivitySessionData) -> str:
+        """
+        Calculate and format current action duration for all sessions.
+        
+        Args:
+            session: Activity session to analyze
+            
+        Returns:
+            Formatted time string (mm:ss) showing time since last activity/event
+        """
+        # For all sessions, use last event time from metadata if available
+        # This shows duration of current action (for ACTIVE) or time since last action (for others)
+        if session.metadata and 'last_event_time' in session.metadata:
+            try:
+                from datetime import datetime, timezone
+                reference_time = datetime.fromisoformat(session.metadata['last_event_time'])
+            except (ValueError, KeyError):
+                # Fallback to session start time if metadata is invalid
+                reference_time = session.start_time
+        else:
+            # Fallback to session start time if no metadata
+            reference_time = session.start_time
+        
+        # Calculate time difference
+        from datetime import datetime, timezone
+        current_time = datetime.now(timezone.utc)
+        time_diff = current_time - reference_time
+        total_seconds = int(time_diff.total_seconds())
+        
+        # Format as mm:ss
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        return f"({minutes:02d}:{seconds:02d})"
+
+    def _render_single_activity_session(self, session: ActivitySessionData, verbosity: str, alignment_width: int = 0):
+        """
+        Render a single activity session based on verbosity level.
+        
+        Args:
+            session: Activity session to render
+            verbosity: Display verbosity level
+            alignment_width: Width for project name alignment (dynamic)
+        """
+        # Get icon and color from configuration
+        icon = self.activity_config["status_icons"].get(session.status, "❓")
+        color = self.activity_config["status_colors"].get(session.status, Colors.ENDC)
+        
+        # Format project name with truncation and alignment
+        max_length = self.activity_config["max_project_name_length"]
+        project_name_display = session.project_name[:max_length] + "..." if len(session.project_name) > max_length else session.project_name
+        # Align to the longest project name width
+        project_name_aligned = project_name_display.ljust(alignment_width)
+        
+        # Get activity/inactivity time for all sessions
+        time_str = self._get_activity_time_str(session)
+        
+        if verbosity == "minimal":
+            # Compact display: just icon and status
+            print(f"{icon} {color}{session.status}{Colors.ENDC}", end=" ")
+        elif verbosity == "normal":
+            # Normal display: icon, project name, status, activity/inactivity time
+            time_info = f" {time_str}" if time_str else ""
+            
+            print(f"{icon} {color}{Colors.BOLD}{project_name_aligned}{Colors.ENDC}- {color}{session.status}{Colors.ENDC}{time_info}")
+        elif verbosity == "verbose":
+            # Verbose display: all details including event type and metadata
+            # Convert UTC to local time for display
+            local_time = session.start_time.replace(tzinfo=timezone.utc).astimezone()
+            timestamp_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
+            event_info = f" [{session.event_type}]" if session.event_type else ""
+            
+            print(f"{icon} {color}{Colors.BOLD}{project_name_display}{Colors.ENDC}")
+            status_line = f"   Status: {color}{session.status}{Colors.ENDC} | Time: {timestamp_str}{event_info}"
+            if time_str and session.status != "ACTIVE":
+                status_line += f" | Inactive: {time_str}"
+            elif time_str and session.status == "ACTIVE":
+                status_line += f" | Active: {time_str}"
+            print(status_line)
+            
+            if session.metadata:
+                metadata_str = ", ".join([f"{k}={v}" for k, v in session.metadata.items() if k != 'last_event_time'])
+                if metadata_str:
+                    print(f"   Metadata: {metadata_str}")
+        
+        # Add newline for minimal mode after all sessions
+        if verbosity == "minimal":
+            print()  # Single newline at the end
+
     def render_full_display(self, monitoring_data: MonitoringData):
         """
         Render the complete display exactly like claude_monitor.py.
         
         Args:
             monitoring_data: Current monitoring data to display
+            
+        Returns:
+            bool: True if data refresh is needed (activity sessions changed), False otherwise
         """
-        # Clear screen only on first run, then just move to top
-        if not self._screen_cleared:
+        # Check if activity sessions have changed for screen clearing decision
+        activity_sessions = monitoring_data.activity_sessions or []
+        sessions_changed = self._has_activity_sessions_changed(activity_sessions)
+        
+        # Check for active session
+        active_session = self.find_active_session(monitoring_data)
+        
+        # Determine current session state
+        current_session_state = "active" if active_session else "waiting"
+        
+        # Check if state changed from active to waiting - will play audio after screen refresh
+        session_state_changed = (self._previous_session_state == "active" and 
+                                current_session_state == "waiting")
+        
+        # Check for main session state transitions that require screen clearing
+        main_session_state_changed = (self._previous_session_state is not None and 
+                                     self._previous_session_state != current_session_state)
+        
+        # Check for activity session status changes - will play audio after screen refresh
+        activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
+        activity_status_changed = self._check_activity_session_changes_without_audio(activity_sessions)
+        
+        # Update previous session state
+        self._previous_session_state = current_session_state
+        
+        # Clear screen on first run, when activity sessions change, or when main session state changes
+        if not self._screen_cleared or sessions_changed or main_session_state_changed:
             self.clear_screen()
             self._screen_cleared = True
         else:
@@ -271,9 +678,6 @@ class DisplayManager:
             days_remaining
         )
         
-        # Check for active session
-        active_session = self.find_active_session(monitoring_data)
-        
         if active_session:
             # Render active session display
             self.render_active_session_display(monitoring_data, active_session)
@@ -281,12 +685,26 @@ class DisplayManager:
             # Render waiting display
             self.render_waiting_display(monitoring_data)
         
+        # Render activity sessions if available
+        activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
+        self._render_activity_sessions(activity_sessions)
+        
         # Render footer
         self.render_footer(current_time, session_stats, days_remaining, 
                           monitoring_data.total_cost_this_month, monitoring_data.daemon_version)
         
-        # Flush output
+        # Flush output to ensure screen refresh is complete
         sys.stdout.flush()
+        
+        # Play audio signals AFTER screen refresh is complete
+        if session_state_changed:
+            self.play_audio_signal()
+        
+        if activity_status_changed:
+            self.play_audio_signal()
+        
+        # Return whether data refresh is needed
+        return sessions_changed
 
     def show_cursor(self):
         """Show terminal cursor."""

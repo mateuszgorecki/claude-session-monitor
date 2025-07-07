@@ -244,6 +244,53 @@ class TestClaudeDaemon(unittest.TestCase):
         self.assertEqual(saved_data['total_cost_this_month'], 0.50)
         self.assertEqual(saved_data['max_tokens_per_session'], 3000)
 
+    def test_daemon_calls_session_cleanup_integration(self):
+        """Test that daemon automatically calls session activity cleanup."""
+        test_config = ConfigData(
+            refresh_interval_seconds=0.1,
+            ccusage_fetch_interval_seconds=0.2  # Fast interval for testing
+        )
+        
+        daemon = ClaudeDaemon(test_config)
+        
+        # Mock components to avoid side effects but allow _collect_data to run
+        daemon.data_collector.collect_data = Mock(return_value=MonitoringData(
+            current_sessions=[],
+            total_sessions_this_month=0,
+            total_cost_this_month=0.0,
+            max_tokens_per_session=10000,
+            last_update=datetime.now(timezone.utc),
+            billing_period_start=datetime.now(timezone.utc),
+            billing_period_end=datetime.now(timezone.utc) + timedelta(days=30)
+        ))
+        daemon.file_manager.write_monitoring_data = Mock(return_value=True)
+        daemon._check_notification_conditions = Mock()
+        
+        # Mock the session activity tracker cleanup method to track calls
+        daemon.session_activity_tracker.cleanup_completed_billing_sessions = Mock()
+        
+        daemon.start()
+        
+        # Let it run for sufficient time to trigger cleanup calls
+        time.sleep(0.5)
+        
+        daemon.stop()
+        
+        # Verify that cleanup_completed_billing_sessions was called
+        self.assertGreater(
+            daemon.session_activity_tracker.cleanup_completed_billing_sessions.call_count, 
+            0,
+            "Session cleanup should have been called by daemon"
+        )
+
+    def test_daemon_initializes_session_activity_tracker(self):
+        """Test that daemon properly initializes SessionActivityTracker."""
+        daemon = ClaudeDaemon(self.test_config)
+        
+        # Verify that session activity tracker is initialized
+        self.assertTrue(hasattr(daemon, 'session_activity_tracker'))
+        self.assertIsNotNone(daemon.session_activity_tracker)
+
 
 if __name__ == '__main__':
     unittest.main()

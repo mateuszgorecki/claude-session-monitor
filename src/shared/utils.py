@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 import shutil
+import random
 from datetime import datetime, timedelta, date
 from typing import Optional, Dict, Any, List
 from zoneinfo import ZoneInfo
@@ -14,7 +15,9 @@ from zoneinfo import ZoneInfo
 from .constants import (
     Colors, UTC_TIMEZONE, PROGRESS_BAR_WIDTH, 
     PROGRESS_BAR_FILLED_CHAR, PROGRESS_BAR_EMPTY_CHAR,
-    MACOS_TERMINAL_NOTIFIER_CMD, MACOS_OSASCRIPT_CMD
+    MACOS_TERMINAL_NOTIFIER_CMD, MACOS_OSASCRIPT_CMD,
+    TIMING_SUGGESTIONS_POSITIVE, TIMING_SUGGESTIONS_MODERATE,
+    TIMING_SUGGESTIONS_SKEPTICAL, TIMING_SUGGESTIONS_CRITICAL
 )
 
 
@@ -422,3 +425,29 @@ def format_file_size(size_bytes: int) -> str:
         return f"{int(size)} {units[unit_index]}"
     else:
         return f"{size:.1f} {units[unit_index]}"
+
+
+def get_work_timing_suggestion() -> str:
+    """
+    Get a work timing suggestion based on current minute of the hour.
+    
+    This function provides humorous timing suggestions based on Anthropic's 
+    hour rounding behavior for billing sessions.
+    
+    Returns:
+        Random timing suggestion string based on current minute:
+        - 0-15 minutes: Positive suggestions
+        - 16-30 minutes: Moderately positive suggestions  
+        - 31-45 minutes: Skeptical suggestions
+        - 46-59 minutes: Humorous/critical suggestions
+    """
+    current_minute = datetime.now().minute
+    
+    if current_minute <= 15:
+        return random.choice(TIMING_SUGGESTIONS_POSITIVE)
+    elif current_minute <= 30:
+        return random.choice(TIMING_SUGGESTIONS_MODERATE)
+    elif current_minute <= 45:
+        return random.choice(TIMING_SUGGESTIONS_SKEPTICAL)
+    else:
+        return random.choice(TIMING_SUGGESTIONS_CRITICAL)

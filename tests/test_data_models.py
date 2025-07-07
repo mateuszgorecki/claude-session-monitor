@@ -143,6 +143,54 @@ class TestMonitoringData(unittest.TestCase):
         self.assertIn("total_sessions_this_month", parsed)
         self.assertIn("total_cost_this_month", parsed)
         self.assertIn("last_update", parsed)
+    
+    def test_monitoring_data_with_activity_sessions(self):
+        """Test that MonitoringData can contain activity sessions."""
+        from src.shared.data_models import MonitoringData, SessionData, ActivitySessionData
+        
+        # Create sample sessions
+        session = SessionData(
+            session_id="billing_session",
+            start_time=datetime(2024, 1, 15, 10, 0, tzinfo=ZoneInfo("UTC")),
+            end_time=None,
+            total_tokens=1000,
+            input_tokens=300,
+            output_tokens=700,
+            cost_usd=0.05,
+            is_active=True
+        )
+        
+        activity_session = ActivitySessionData(
+            project_name="test_project",
+            session_id="activity_session",
+            start_time=datetime(2024, 1, 15, 10, 30, tzinfo=ZoneInfo("UTC")),
+            status="ACTIVE",
+            event_type="notification"
+        )
+        
+        # Create monitoring data with activity sessions
+        monitoring_data = MonitoringData(
+            current_sessions=[session],
+            activity_sessions=[activity_session],
+            total_sessions_this_month=1,
+            total_cost_this_month=0.05,
+            max_tokens_per_session=1000,
+            last_update=datetime.now(ZoneInfo("UTC")),
+            billing_period_start=datetime(2024, 1, 1, tzinfo=ZoneInfo("UTC")),
+            billing_period_end=datetime(2024, 2, 1, tzinfo=ZoneInfo("UTC"))
+        )
+        
+        # Test serialization includes activity sessions
+        data_dict = monitoring_data.to_dict()
+        self.assertIn("activity_sessions", data_dict)
+        self.assertEqual(len(data_dict["activity_sessions"]), 1)
+        self.assertEqual(data_dict["activity_sessions"][0]["session_id"], "activity_session")
+        
+        # Test deserialization
+        restored_data = MonitoringData.from_dict(data_dict)
+        self.assertEqual(len(restored_data.activity_sessions), 1)
+        self.assertEqual(restored_data.activity_sessions[0].session_id, "activity_session")
+        self.assertEqual(restored_data.activity_sessions[0].status, "ACTIVE")
 
 
 class TestConfigData(unittest.TestCase):

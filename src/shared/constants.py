@@ -11,8 +11,8 @@ APP_NAME = "Claude Session Monitor"
 APP_VERSION = "2.0.0"
 APP_AUTHOR = "Claude Monitor Team"
 
-# Daemon Version Information
-DAEMON_VERSION = "1.0.0"
+# Daemon Version Information  
+DAEMON_VERSION = "1.1.0"
 
 # Default Configuration Values
 DEFAULT_TOTAL_MONTHLY_SESSIONS = 50
@@ -123,3 +123,66 @@ SCHEMA_REQUIRED_FIELDS = {
 DEBUG_MODE = False
 VERBOSE_LOGGING = False
 ENABLE_PERFORMANCE_METRICS = False
+
+# Hook System Configuration
+HOOK_LOG_DIR = "~/.config/claude-monitor/hooks"
+HOOK_LOG_FILE_PATTERN = "claude_activity.log"
+HOOK_LOG_RETENTION_DAYS = 30
+HOOK_LOG_MAX_SIZE_MB = 10
+
+# Hook Scripts Configuration
+HOOK_SCRIPTS_DIR = "hooks"
+HOOK_CONFIG_FILE = "claude_hooks_config.json"
+HOOK_NOTIFICATION_SCRIPT = "notification_hook.py"
+HOOK_STOP_SCRIPT = "stop_hook.py"
+
+# Activity Session Constants
+ACTIVITY_SESSION_STATUSES = ["ACTIVE", "WAITING", "STOPPED"]
+HOOK_EVENT_TYPES = ["notification", "stop", "subagentstop"]
+
+# Work Timing Suggestion Messages
+TIMING_SUGGESTIONS_POSITIVE = [
+    "Idealny czas na rozpoczęcie pracy! 🚀",
+    "Świetny moment na start! ⭐",
+    "Perfect timing - zaczynamy! 💪",
+    "Nowa godzina, nowa energia! ⚡",
+    "Świeży początek, świeże możliwości! 🌟",
+    "Timing jak z podręcznika! 📚",
+    "Pora na wielkie rzeczy! 🎯",
+    "Najprawdopodobniej najlepszy moment! 🎉"
+]
+
+TIMING_SUGGESTIONS_MODERATE = [
+    "Od biedy można zaczynać 🤷",
+    "Nie najgorzej, ale mogło być lepiej 😐",
+    "Antropic prawdopodobnie nie będzie narzekać 🤔",
+    "Średnio optymalnie, ale OK 👍",
+    "Można spróbować, zobaczymy co z tego wyjdzie 🎲",
+    "Nie jest źle, ale też nie jest idealnie 🤷‍♂️",
+    "Mogło być gorzej, mogło być lepiej 📊",
+    "Timing tak sobie, ale może się uda 🤞"
+]
+
+TIMING_SUGGESTIONS_SKEPTICAL = [
+    "Zaczynanie teraz to średni pomysł 😕",
+    "Hmm, może lepiej poczekać? 🤷‍♀️",
+    "Nie jestem pewien czy to najlepszy moment 🤔",
+    "Timing mógłby być lepszy, szczerze mówiąc 😬",
+    "Suboptymalne, ale jeśli musisz... 🤷",
+    "Może spróbować za kilka minut? ⏰",
+    "Nie najlepiej, ale może nie będzie tak źle 🤷‍♂️",
+    "Timing pozostawia nieco do życzenia 📉"
+]
+
+TIMING_SUGGESTIONS_CRITICAL = [
+    "Trzeba być... no cóż, żeby teraz zaczynać 😅",
+    "Seriously? 🤔",
+    "Timing jak z koszmaru optymalizatora 😱",
+    "Może jednak lepiej poczekać do pełnej godziny? 🕐",
+    "Anthropic nie będzie zadowolone z tego timingu 😬",
+    "To chyba najgorszy możliwy moment 🤦",
+    "Gdyby timing był osobą, potrzebowałby terapii 🛋️",
+    "Może to znak, żeby zrobić sobie przerwę? ☕",
+    "Timing Level: Eksperymentalny 🧪",
+    "Zapłacisz za każdą minutę tego opóźnienia 💸"
+]

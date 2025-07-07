@@ -98,6 +98,9 @@ The monitor displays:
 - **macOS notifications** for time warnings and inactivity alerts
 - **Anti-flicker terminal UI** for smooth monitoring experience
 - **Compressed footer** with optimized information density
+- **Activity sessions display** with Claude Code hooks integration
+- **Smart status detection** (ACTIVE, WAITING_FOR_USER, IDLE, INACTIVE)
+- **Audio signals** for session status changes
 
 ## Usage and Options
 
@@ -156,6 +159,55 @@ You can modify these values in the source code:
 - `TIME_REMAINING_ALERT_MINUTES = 30` - Warning threshold for session end
 - `INACTIVITY_ALERT_MINUTES = 10` - Notification for idle periods
 - `LOCAL_TZ = ZoneInfo("Europe/Warsaw")` - Default display timezone (can be overridden with --timezone)
+- `ACTIVITY_SESSION_CLEANUP_HOURS = 5` - Auto-cleanup after billing window
+- `HOOK_LOG_FILE_PATTERN = "claude_activity.log"` - Single log file without date stamps
+
+### Claude Code Hooks Integration (Optional)
+
+For enhanced monitoring of active Claude Code sessions, you can configure Claude Code hooks to track real-time activity alongside billing sessions:
+
+1. **Automatic setup via settings.json:**
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": {
+         "executable": "/absolute/path/to/claude-session-monitor/hooks/activity_hook.py"
+       },
+       "Stop": {
+         "executable": "/absolute/path/to/claude-session-monitor/hooks/stop_hook.py"
+       }
+     }
+   }
+   ```
+   Add this to your `~/.claude/settings.json` file (create if it doesn't exist).
+
+2. **Make hook scripts executable:**
+   ```bash
+   chmod +x hooks/activity_hook.py
+   chmod +x hooks/stop_hook.py
+   ```
+
+3. **What hooks provide:**
+   - **Activity Sessions**: Project-based session tracking grouped by directory name
+   - **Smart Status Detection**: ACTIVE, WAITING_FOR_USER, IDLE, INACTIVE based on timing
+   - **Real-time Monitoring**: See current Claude Code work sessions with uptime display
+   - **Audio Signals**: Double beeps for status changes (SSH-compatible)
+   - **Project Grouping**: Sessions organized by project name instead of session ID
+
+4. **Available Hook Scripts:**
+   - `hooks/activity_hook.py` - Captures PreToolUse events (activity signals)
+   - `hooks/stop_hook.py` - Handles Stop events (session completion)
+   - `hooks/notification_hook.py` - Legacy notification hook (still supported)
+
+5. **Activity Session Display:**
+   ```
+   Activity Sessions:
+   🔵 my-project     - (15:23) ACTIVE
+   ⏳ other-project  - (02:45) WAITING_FOR_USER
+   💤 old-project    - (45:12) IDLE
+   ```
+
+**Note:** Hooks are completely optional. The monitor provides full functionality without them, tracking billing sessions via ccusage. When hooks are configured, you get additional real-time activity monitoring.
 
 ## Quick Start: Daemon + Client Architecture
 
@@ -195,12 +247,14 @@ uv run python3 claude_monitor.py --start-day 15
 **Current Architecture (Daemon + Client):**
 - **Daemon Service**: Background service with cron-based installation
 - **Data Collection**: Calls `ccusage blocks -j` every 10 seconds with robust error handling
+- **Activity Monitoring**: Optional Claude Code hooks integration for real-time session tracking
 - **Execution Strategy**: Multi-tier fallback system (wrapper script → subprocess → os.system)
 - **File Storage**: Atomic writes to `~/.config/claude-monitor/monitor_data.json`
 - **iCloud Sync**: Automatic synchronization to iCloud Drive for iOS widget access
-- **Client Display**: Anti-flicker terminal UI with compressed footer and smooth updates
-- **Notification System**: Rate-limited alerts with message-specific tracking
+- **Client Display**: Anti-flicker terminal UI with activity sessions and compressed footer
+- **Notification System**: Rate-limited alerts with message-specific tracking and audio signals
 - **Thread Safety**: Event-based synchronization prevents race conditions
+- **Hook Integration**: Project-based activity session grouping with smart status detection
 
 **Legacy Mode:**
 - **Direct**: Original `claude_monitor.py` calls `ccusage` on every refresh (still available)

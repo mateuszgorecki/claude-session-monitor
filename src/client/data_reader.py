@@ -37,6 +37,7 @@ class DataReader:
         # Cache variables
         self._cached_data: Optional[MonitoringData] = None
         self._cache_timestamp: float = 0.0
+        self._cached_last_update: Optional[str] = None
         
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -53,8 +54,26 @@ class DataReader:
         """
         current_time = time.time()
         
+        # Check if we need to bypass cache due to data changes
+        needs_refresh = force_refresh
+        
+        # Quick check of file's last_update to see if data changed
+        if not needs_refresh and self._cached_data is not None:
+            try:
+                if os.path.exists(self.file_path):
+                    with open(self.file_path, 'r') as f:
+                        data_dict = json.load(f)
+                    
+                    file_last_update = data_dict.get('last_update')
+                    if file_last_update != self._cached_last_update:
+                        needs_refresh = True
+                        # Only log to debug, don't print to console
+                        self.logger.debug(f"Data timestamp changed: {self._cached_last_update} -> {file_last_update}")
+            except Exception:
+                pass  # If we can't check timestamp, use normal cache logic
+        
         # Check cache validity
-        if (not force_refresh and 
+        if (not needs_refresh and 
             self._cached_data is not None and 
             current_time - self._cache_timestamp < self.cache_duration):
             return self._cached_data
@@ -79,6 +98,7 @@ class DataReader:
             # Update cache
             self._cached_data = monitoring_data
             self._cache_timestamp = current_time
+            self._cached_last_update = data_dict.get('last_update')
             
             self.logger.debug(f"Successfully read monitoring data from {self.file_path}")
             return monitoring_data
@@ -123,6 +143,7 @@ class DataReader:
         """Clear cached data to force fresh read on next access."""
         self._cached_data = None
         self._cache_timestamp = 0.0
+        self._cached_last_update = None
         self.logger.debug("DataReader cache cleared")
 
     def get_cache_age(self) -> float:

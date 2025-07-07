@@ -34,7 +34,12 @@
       "Bash(sed:*)",
       "Bash(timeout 10 python3:*)",
       "Bash(pkill:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(npm run lint)",
+      "Bash(npm run:*)",
+      "Bash(cat:*)",
+      "Bash(python -m pytest tests/test_display_manager.py::TestDisplayManager::test_screen_clear_on_transition -v)"
     ],
     "deny": []
   }
