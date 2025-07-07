@@ -155,20 +155,20 @@ claude-session-monitor/
 ### Faza 4: Implementacja Sugestii Timing'u
 
 #### Zadanie 4.1: Logika analizy czasu rozpoczynania pracy
-- [ ] **(RED)** Napisz test `test_work_timing_suggestions` sprawdzający czy:
+- [x] **(RED)** Napisz test `test_work_timing_suggestions` sprawdzający czy:
   - Dla minut 0-15: losowy wybór z pozytywnych sugestii (np. "Idealny czas na rozpoczęcie pracy!", "Świetny moment na start!")
   - Dla minut 16-30: losowy wybór z umiarkowanie pozytywnych sugestii (np. "Od biedy można zaczynać", "Nie najgorzej, ale mogło być lepiej")
   - Dla minut 31-45: losowy wybór z sceptycznych sugestii (np. "Zaczynanie teraz to średni pomysł", "Hmm, może lepiej poczekać?")
   - Dla minut 46-59: losowy wybór z humorystycznych/krytycznych sugestii (np. "Trzeba być... no cóż, żeby teraz zaczynać", "Seriously? 🤔")
-- [ ] Uruchom test i potwierdź, że logika nie istnieje
-- [ ] **(GREEN)** Zaimplementuj funkcję `get_work_timing_suggestion()` w `utils.py` z randomizacją
-- [ ] **(REFACTOR)** Dodaj konfigurację komunikatów w `constants.py` z listami humorystycznych wiadomości
+- [x] Uruchom test i potwierdź, że logika nie istnieje
+- [x] **(GREEN)** Zaimplementuj funkcję `get_work_timing_suggestion()` w `utils.py` z randomizacją
+- [x] **(REFACTOR)** Dodaj konfigurację komunikatów w `constants.py` z listami humorystycznych wiadomości
 
 #### Zadanie 4.2: Integracja z wyświetlaniem
-- [ ] **(RED)** Napisz test `test_timing_display_integration` sprawdzający wyświetlanie sugestii
-- [ ] Uruchom test i potwierdź, że sugestie nie są wyświetlane
-- [ ] **(GREEN)** Zmodyfikuj `render_waiting_display()` aby pokazywała sugestie timing'u
-- [ ] **(REFACTOR)** Dodaj odpowiednie kolory i formatowanie dla różnych typów sugestii
+- [x] **(RED)** Napisz test `test_timing_display_integration` sprawdzający wyświetlanie sugestii
+- [x] Uruchom test i potwierdź, że sugestie nie są wyświetlane
+- [x] **(GREEN)** Zmodyfikuj `render_waiting_display()` aby pokazywała sugestie timing'u
+- [x] **(REFACTOR)** Dodaj odpowiednie kolory i formatowanie dla różnych typów sugestii
 
 ### Faza 5: Testy Integracyjne i Finalizacja
 

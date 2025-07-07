@@ -717,6 +717,75 @@ class TestDisplayManager(unittest.TestCase):
             self.assertEqual(mock_clear.call_count, 1)
             self.assertEqual(mock_move.call_count, 0)
 
+    def test_timing_display_integration(self):
+        """Test that timing suggestions are displayed in waiting state."""
+        display_manager = DisplayManager()
+        
+        # Create monitoring data with no active sessions (waiting state)
+        monitoring_data_waiting = MonitoringData(
+            current_sessions=[self.completed_session],  # Only completed sessions
+            total_sessions_this_month=1,
+            total_cost_this_month=3.15,
+            max_tokens_per_session=3000,
+            last_update=datetime.now(timezone.utc),
+            billing_period_start=datetime.now(timezone.utc) - timedelta(days=15),
+            billing_period_end=datetime.now(timezone.utc) + timedelta(days=15)
+        )
+        
+        # Capture stdout to check if timing suggestions are displayed
+        with patch('sys.stdout', new=io.StringIO()) as mock_stdout:
+            display_manager.render_waiting_display(monitoring_data_waiting)
+            output = mock_stdout.getvalue()
+            
+            # Check that waiting message is displayed
+            self.assertIn("Waiting for a new session to start", output)
+            
+            # Check that timing suggestion is displayed
+            self.assertIn("Timing suggestion:", output)
+            
+            # Check that the suggestion is not empty
+            lines = output.split('\n')
+            timing_lines = [line for line in lines if 'Timing suggestion:' in line]
+            self.assertEqual(len(timing_lines), 1)
+            
+            # Extract the suggestion text
+            timing_line = timing_lines[0]
+            self.assertGreater(len(timing_line), len("Timing suggestion:"))
+            
+    def test_timing_display_different_times(self):
+        """Test timing suggestions for different time ranges."""
+        display_manager = DisplayManager()
+        
+        # Create monitoring data for waiting state
+        monitoring_data_waiting = MonitoringData(
+            current_sessions=[self.completed_session],
+            total_sessions_this_month=1,
+            total_cost_this_month=3.15,
+            max_tokens_per_session=3000,
+            last_update=datetime.now(timezone.utc),
+            billing_period_start=datetime.now(timezone.utc) - timedelta(days=15),
+            billing_period_end=datetime.now(timezone.utc) + timedelta(days=15)
+        )
+        
+        # Test different time ranges
+        test_times = [5, 25, 35, 55]  # Representative minutes from each range
+        
+        for test_minute in test_times:
+            with patch('src.shared.utils.datetime') as mock_datetime:
+                mock_datetime.now.return_value.minute = test_minute
+                
+                with patch('sys.stdout', new=io.StringIO()) as mock_stdout:
+                    display_manager.render_waiting_display(monitoring_data_waiting)
+                    output = mock_stdout.getvalue()
+                    
+                    # Check timing suggestion is present
+                    self.assertIn("Timing suggestion:", output)
+                    
+                    # Check suggestion is not empty
+                    lines = output.split('\n')
+                    timing_lines = [line for line in lines if 'Timing suggestion:' in line]
+                    self.assertEqual(len(timing_lines), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

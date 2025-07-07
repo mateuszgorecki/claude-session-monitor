@@ -139,3 +139,50 @@ HOOK_STOP_SCRIPT = "stop_hook.py"
 # Activity Session Constants
 ACTIVITY_SESSION_STATUSES = ["ACTIVE", "WAITING", "STOPPED"]
 HOOK_EVENT_TYPES = ["notification", "stop", "subagentstop"]
+
+# Work Timing Suggestion Messages
+TIMING_SUGGESTIONS_POSITIVE = [
+    "Idealny czas na rozpoczęcie pracy! 🚀",
+    "Świetny moment na start! ⭐",
+    "Perfect timing - zaczynamy! 💪",
+    "Nowa godzina, nowa energia! ⚡",
+    "Świeży początek, świeże możliwości! 🌟",
+    "Timing jak z podręcznika! 📚",
+    "Pora na wielkie rzeczy! 🎯",
+    "Najprawdopodobniej najlepszy moment! 🎉"
+]
+
+TIMING_SUGGESTIONS_MODERATE = [
+    "Od biedy można zaczynać 🤷",
+    "Nie najgorzej, ale mogło być lepiej 😐",
+    "Antropic prawdopodobnie nie będzie narzekać 🤔",
+    "Średnio optymalnie, ale OK 👍",
+    "Można spróbować, zobaczymy co z tego wyjdzie 🎲",
+    "Nie jest źle, ale też nie jest idealnie 🤷‍♂️",
+    "Mogło być gorzej, mogło być lepiej 📊",
+    "Timing tak sobie, ale może się uda 🤞"
+]
+
+TIMING_SUGGESTIONS_SKEPTICAL = [
+    "Zaczynanie teraz to średni pomysł 😕",
+    "Hmm, może lepiej poczekać? 🤷‍♀️",
+    "Nie jestem pewien czy to najlepszy moment 🤔",
+    "Timing mógłby być lepszy, szczerze mówiąc 😬",
+    "Suboptymalne, ale jeśli musisz... 🤷",
+    "Może spróbować za kilka minut? ⏰",
+    "Nie najlepiej, ale może nie będzie tak źle 🤷‍♂️",
+    "Timing pozostawia nieco do życzenia 📉"
+]
+
+TIMING_SUGGESTIONS_CRITICAL = [
+    "Trzeba być... no cóż, żeby teraz zaczynać 😅",
+    "Seriously? 🤔",
+    "Timing jak z koszmaru optymalizatora 😱",
+    "Może jednak lepiej poczekać do pełnej godziny? 🕐",
+    "Anthropic nie będzie zadowolone z tego timingu 😬",
+    "To chyba najgorszy możliwy moment 🤦",
+    "Gdyby timing był osobą, potrzebowałby terapii 🛋️",
+    "Może to znak, żeby zrobić sobie przerwę? ☕",
+    "Timing Level: Eksperymentalny 🧪",
+    "Zapłacisz za każdą minutę tego opóźnienia 💸"
+]

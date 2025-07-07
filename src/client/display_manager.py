@@ -7,8 +7,10 @@ from typing import Optional, Dict, Any, List
 
 try:
     from ..shared.data_models import MonitoringData, SessionData, ActivitySessionData
+    from ..shared.utils import get_work_timing_suggestion
 except ImportError:
     from shared.data_models import MonitoringData, SessionData, ActivitySessionData
+    from shared.utils import get_work_timing_suggestion
 
 
 class Colors:
@@ -250,7 +252,23 @@ class DisplayManager:
         
         # Show current subscription period start
         period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
-        print(f"Current subscription period started: {period_start}\n")
+        print(f"Current subscription period started: {period_start}")
+        
+        # Show timing suggestion
+        timing_suggestion = get_work_timing_suggestion()
+        current_minute = datetime.now().minute
+        
+        # Color coding based on time range
+        if current_minute <= 15:
+            color = Colors.GREEN  # Positive - green
+        elif current_minute <= 30:
+            color = Colors.CYAN   # Moderate - cyan
+        elif current_minute <= 45:
+            color = Colors.WARNING  # Skeptical - yellow
+        else:
+            color = Colors.FAIL   # Critical - red
+            
+        print(f"\n{color}Timing suggestion: {timing_suggestion}{Colors.ENDC}\n")
 
     def render_footer(self, current_time: datetime, session_stats: Dict[str, Any],
                      days_remaining: int, total_cost: float, daemon_version: Optional[str] = None):
