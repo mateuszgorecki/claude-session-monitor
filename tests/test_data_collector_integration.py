@@ -42,12 +42,14 @@ class TestDataCollectorIntegration(unittest.TestCase):
         # Sample activity sessions
         self.sample_activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="activity_session_1",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=15),
                 status=ActivitySessionStatus.ACTIVE.value,
                 event_type="notification"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="activity_session_2",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=30),
                 end_time=datetime.now(timezone.utc) - timedelta(minutes=5),
@@ -182,6 +184,7 @@ class TestDataCollectorIntegration(unittest.TestCase):
         # Mock activity tracker with old sessions
         old_sessions = [
             ActivitySessionData(
+                project_name="old_project",
                 session_id="old_session",
                 start_time=datetime.now(timezone.utc) - timedelta(days=35),  # Older than billing period
                 status=ActivitySessionStatus.STOPPED.value

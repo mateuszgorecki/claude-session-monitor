@@ -11,8 +11,8 @@ APP_NAME = "Claude Session Monitor"
 APP_VERSION = "2.0.0"
 APP_AUTHOR = "Claude Monitor Team"
 
-# Daemon Version Information
-DAEMON_VERSION = "1.0.0"
+# Daemon Version Information  
+DAEMON_VERSION = "1.1.0"
 
 # Default Configuration Values
 DEFAULT_TOTAL_MONTHLY_SESSIONS = 50
@@ -126,7 +126,7 @@ ENABLE_PERFORMANCE_METRICS = False
 
 # Hook System Configuration
 HOOK_LOG_DIR = "~/.config/claude-monitor/hooks"
-HOOK_LOG_FILE_PATTERN = "claude_activity_{date}.log"
+HOOK_LOG_FILE_PATTERN = "claude_activity.log"
 HOOK_LOG_RETENTION_DAYS = 30
 HOOK_LOG_MAX_SIZE_MB = 10
 

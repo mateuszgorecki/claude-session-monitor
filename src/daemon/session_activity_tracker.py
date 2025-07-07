@@ -85,15 +85,12 @@ class SessionActivityTracker:
                     all_sessions = []
                     processed_count = 0
                     
+                    # When cache is invalid, reprocess all files to get latest events
                     for log_file in log_files:
-                        if log_file not in self._processed_files or force_update:
-                            sessions = self._process_log_file(log_file)
-                            all_sessions.extend(sessions)
-                            self._processed_files.add(log_file)
-                            processed_count += 1
-                        else:
-                            # File already processed, get from cache
-                            continue
+                        sessions = self._process_log_file(log_file)
+                        all_sessions.extend(sessions)
+                        self._processed_files.add(log_file)
+                        processed_count += 1
                     
                     # Merge sessions by session_id to consolidate events
                     if all_sessions or force_update:
@@ -151,6 +148,20 @@ class SessionActivityTracker:
                 return session
         return None
     
+    def get_session_by_project(self, project_name: str) -> Optional[ActivitySessionData]:
+        """Get a specific session by project name.
+        
+        Args:
+            project_name: The project name to search for
+            
+        Returns:
+            ActivitySessionData object if found, None otherwise
+        """
+        for session in self._active_sessions:
+            if session.project_name == project_name:
+                return session
+        return None
+    
     def _discover_log_files(self) -> List[str]:
         """Discover hook log files in the configured directory.
         
@@ -162,11 +173,13 @@ class SessionActivityTracker:
             self.logger.debug(f"Hook log directory does not exist: {log_dir}")
             return []
         
-        # Use glob pattern to find hook log files
-        pattern = HOOK_LOG_FILE_PATTERN.replace('{date}', '*')
-        search_pattern = os.path.join(log_dir, pattern)
+        # Check for the single hook log file
+        log_file_path = os.path.join(log_dir, HOOK_LOG_FILE_PATTERN)
         
-        log_files = glob.glob(search_pattern)
+        if os.path.exists(log_file_path):
+            log_files = [log_file_path]
+        else:
+            log_files = []
         log_files.sort()  # Sort chronologically
         
         self.logger.debug(f"Discovered {len(log_files)} log files in {log_dir}")
@@ -184,9 +197,9 @@ class SessionActivityTracker:
         return self.parser.parse_log_file(file_path)
     
     def _merge_sessions(self, sessions: List[ActivitySessionData]) -> List[ActivitySessionData]:
-        """Merge sessions by session_id and calculate smart status based on event history.
+        """Merge sessions by project_name and calculate smart status based on event history.
         
-        Groups events by session_id and uses smart detection to determine session status
+        Groups events by project_name and uses smart detection to determine session status
         based on the most recent event type and timing.
         
         Args:
@@ -195,18 +208,18 @@ class SessionActivityTracker:
         Returns:
             List of merged ActivitySessionData objects with smart status
         """
-        # Group sessions by session_id
+        # Group sessions by project_name
         session_groups: Dict[str, List[ActivitySessionData]] = {}
         
         for session in sessions:
-            session_id = session.session_id
-            if session_id not in session_groups:
-                session_groups[session_id] = []
-            session_groups[session_id].append(session)
+            project_name = session.project_name
+            if project_name not in session_groups:
+                session_groups[project_name] = []
+            session_groups[project_name].append(session)
         
         merged_sessions = []
         
-        for session_id, events in session_groups.items():
+        for project_name, events in session_groups.items():
             # Sort events by timestamp to find earliest and latest
             sorted_events = sorted(events, key=lambda e: e.start_time)
             first_event = sorted_events[0]
@@ -217,7 +230,8 @@ class SessionActivityTracker:
             
             # Create merged session with smart status
             merged_session = ActivitySessionData(
-                session_id=session_id,
+                project_name=project_name,
+                session_id=first_event.session_id,  # Keep first session_id for reference
                 start_time=first_event.start_time,  # First event time as session start
                 status=smart_status,
                 event_type=last_event.event_type,  # Most recent event type
@@ -374,6 +388,48 @@ class SessionActivityTracker:
             removed_count = initial_count - len(self._active_sessions)
             if removed_count > 0:
                 self.logger.info(f"Cleaned up {removed_count} old sessions (older than {retention_days} days)")
+    
+    def cleanup_completed_billing_sessions(self) -> None:
+        """Clean up activity sessions that are no longer part of active 5-hour billing window.
+        
+        This method checks if all sessions in the log are outside the current 5-hour
+        billing period and clears the log file if so. This prevents accumulation of
+        old activity data that's no longer relevant for billing session monitoring.
+        """
+        from datetime import datetime, timezone
+        
+        # Define 5-hour billing session window
+        BILLING_SESSION_HOURS = 5
+        now = datetime.now(timezone.utc)
+        cutoff_time = now - timedelta(hours=BILLING_SESSION_HOURS)
+        
+        with self._session_lock:
+            # Check if all sessions are older than the billing window
+            recent_sessions = [
+                session for session in self._active_sessions
+                if session.start_time >= cutoff_time
+            ]
+            
+            # If no recent sessions, clear the log file completely
+            if not recent_sessions and self._active_sessions:
+                log_dir = os.path.expanduser(HOOK_LOG_DIR)
+                log_file_path = os.path.join(log_dir, HOOK_LOG_FILE_PATTERN)
+                
+                try:
+                    if os.path.exists(log_file_path):
+                        # Clear the file content (truncate to 0 bytes)
+                        with open(log_file_path, 'w') as f:
+                            pass  # Just open and close to truncate
+                        
+                        self.logger.info(f"Cleared activity log file - all sessions outside 5h billing window")
+                        
+                        # Clear in-memory cache as well
+                        self._active_sessions.clear()
+                        self._file_modification_times.clear()
+                        self._last_cache_update = None
+                        
+                except Exception as e:
+                    self.logger.error(f"Failed to clear activity log file: {e}")
     
     def __del__(self):
         """Cleanup when tracker is destroyed."""

@@ -41,7 +41,7 @@ class HookLogParser:
             data = json.loads(log_line.strip())
             
             # Validate required fields
-            required_fields = ['timestamp', 'session_id', 'event_type']
+            required_fields = ['timestamp', 'session_id', 'event_type', 'project_name']
             if not all(key in data for key in required_fields):
                 self.logger.warning(f"Log line missing required fields {required_fields}: {log_line[:100]}...")
                 return None
@@ -89,7 +89,7 @@ class HookLogParser:
                 end_time = timestamp
                 # For stop events, set start_time slightly before end_time to satisfy validation
                 start_time = timestamp - timedelta(microseconds=1)
-            elif event_type.lower() == 'notification':
+            elif event_type.lower() in ['notification', 'activity']:
                 status = ActivitySessionStatus.ACTIVE.value
                 end_time = None
                 start_time = timestamp
@@ -106,6 +106,7 @@ class HookLogParser:
                 metadata = {}
             
             session = ActivitySessionData(
+                project_name=event_data['project_name'],
                 session_id=session_id,
                 start_time=start_time,
                 end_time=end_time,

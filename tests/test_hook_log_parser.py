@@ -29,6 +29,7 @@ class TestHookLogParser(unittest.TestCase):
         """Test parsing a valid notification log line."""
         log_line = json.dumps({
             "timestamp": "2025-07-06T10:30:00+00:00",
+            "project_name": "test-project",
             "session_id": "session_123",
             "event_type": "notification",
             "data": {
@@ -49,6 +50,7 @@ class TestHookLogParser(unittest.TestCase):
         """Test parsing a valid stop log line."""
         log_line = json.dumps({
             "timestamp": "2025-07-06T10:35:00+00:00",
+            "project_name": "test-project",
             "session_id": "session_123",
             "event_type": "stop",
             "data": {
@@ -87,6 +89,7 @@ class TestHookLogParser(unittest.TestCase):
         """Test creating ActivitySessionData from notification event."""
         event_data = {
             "timestamp": "2025-07-06T10:30:00+00:00",
+            "project_name": "test-project",
             "session_id": "session_123",
             "event_type": "notification",
             "data": {"message": "Task completed"}
@@ -103,6 +106,7 @@ class TestHookLogParser(unittest.TestCase):
         """Test creating ActivitySessionData from stop event."""
         event_data = {
             "timestamp": "2025-07-06T10:35:00+00:00",
+            "project_name": "test-project",
             "session_id": "session_123",
             "event_type": "stop",
             "data": {"reason": "completed"}
@@ -117,9 +121,9 @@ class TestHookLogParser(unittest.TestCase):
     
     def test_parse_log_file_returns_activity_sessions(self):
         """Test parsing a complete log file and returning ActivitySessionData list."""
-        sample_log_content = '''{"timestamp": "2025-07-06T10:30:00+00:00", "session_id": "session_123", "event_type": "notification", "data": {}}
-{"timestamp": "2025-07-06T10:35:00+00:00", "session_id": "session_123", "event_type": "stop", "data": {}}
-{"timestamp": "2025-07-06T10:40:00+00:00", "session_id": "session_456", "event_type": "notification", "data": {}}'''
+        sample_log_content = '''{"timestamp": "2025-07-06T10:30:00+00:00", "project_name": "project-1", "session_id": "session_123", "event_type": "notification", "data": {}}
+{"timestamp": "2025-07-06T10:35:00+00:00", "project_name": "project-1", "session_id": "session_123", "event_type": "stop", "data": {}}
+{"timestamp": "2025-07-06T10:40:00+00:00", "project_name": "project-2", "session_id": "session_456", "event_type": "notification", "data": {}}'''
         
         with patch('os.path.exists', return_value=True), \
              patch('os.path.getsize', return_value=len(sample_log_content)), \
@@ -133,9 +137,9 @@ class TestHookLogParser(unittest.TestCase):
     
     def test_parse_log_file_handles_corrupted_lines(self):
         """Test parsing log file with some corrupted lines."""
-        sample_log_content = '''{"timestamp": "2025-07-06T10:30:00+00:00", "session_id": "session_123", "event_type": "notification", "data": {}}
+        sample_log_content = '''{"timestamp": "2025-07-06T10:30:00+00:00", "project_name": "project-1", "session_id": "session_123", "event_type": "notification", "data": {}}
 CORRUPTED LINE - NOT JSON
-{"timestamp": "2025-07-06T10:40:00+00:00", "session_id": "session_456", "event_type": "notification", "data": {}}
+{"timestamp": "2025-07-06T10:40:00+00:00", "project_name": "project-2", "session_id": "session_456", "event_type": "notification", "data": {}}
 {"incomplete": "json"'''
         
         with patch('os.path.exists', return_value=True), \

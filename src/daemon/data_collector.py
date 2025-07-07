@@ -598,6 +598,9 @@ class DataCollector:
             # Update activity tracker with latest log files
             self._activity_tracker.update_from_log_files()
             
+            # Clean up sessions outside 5-hour billing window
+            self._activity_tracker.cleanup_completed_billing_sessions()
+            
             # Get all activity sessions (not just active ones for full history)
             return self._activity_tracker._active_sessions
             

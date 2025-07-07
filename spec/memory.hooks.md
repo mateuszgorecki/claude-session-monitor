@@ -1,3 +1,229 @@
+####################### 2025-07-07, 16:30:00
+## Task: SSH Audio Signal Fix - Dźwięk przez SSH na hoście zamiast kliencie
+**Date:** 2025-07-07, 16:30:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Sygnały dźwiękowe nie działały podczas łączenia się z klientem przez SSH z iPada - dźwięk próbował być odtwarzany na kliencie (iPad) zamiast na hoście (Mac), gdzie faktycznie jest uruchomiony proces monitora.
+* **Solution:** Przeprojektowano system audio signal z `afplay` na `osascript beep` jako primary method, z fallback chain dla lepszej kompatybilności SSH i sesji lokalnych.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Zaimplementowano hierarchiczny system fallback: osascript → afplay → terminal bell. `osascript` ma lepszy dostęp do systemu audio nawet przez SSH, ponieważ używa AppleScript interpreter który może komunikować się z systemem audio w tle. `afplay` wymaga bezpośredniego dostępu do audio session, który może być zablokowany przez SSH.
+* **Library/Dependency Choices:** Wykorzystano `osascript` jako primary method - standard macOS tool bez dodatkowych zależności. `osascript -e 'beep 1'` używa systemowego mechanizmu beep dostępnego dla procesów w tle. Zachowano `afplay` jako fallback dla sesji lokalnych gdzie może działać lepiej niż system beep.
+* **Method/Algorithm Choices:** Wybrano `osascript beep` zamiast `afplay` dla SSH compatibility. AppleScript interpreter ma wyższy poziom dostępu do systemu niż direct audio file playback. System beep jest bardziej niezawodny w środowisku SSH niż file-based audio playback. Zachowano triple fallback strategy dla maximum compatibility.
+* **Testing Strategy:** Przetestowano `osascript -e 'beep 1'` lokalnie - działa bez błędów. SSH testing zostanie potwierdzony przez użytkownika przy następnym uruchomieniu klienta przez SSH z iPada. Method powinien teraz odtwarzać dźwięk na hoście (Mac) zamiast próbować na kliencie (iPad).
+* **Other Key Decisions:** Zachowano wszystkie istniejące fallback mechanisms dla backward compatibility. Nie zmieniono logiki wywołania audio signal - nadal wyzwala się przy przejściu ACTIVE → WAITING_FOR_USER. Zmiany są completely backwards compatible z lokalnymi sesjami.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zdiagnozowano problem - SSH sessions próbują odtwarzać dźwięk na kliencie zamiast na hoście
+  2. Przeanalizowano dostępne opcje audio na macOS: afplay (requires direct audio session), osascript beep (system-level access), terminal bell (basic)
+  3. Przeprojektowano play_audio_signal() method w DisplayManager - zmieniono primary method z afplay na osascript
+  4. Zaimplementowano hierarchiczny fallback: osascript → afplay → terminal bell
+  5. Przetestowano osascript beep lokalnie - potwierdzona funkcjonalność
+  6. Dodano komentarze explaining SSH compatibility reasoning
+* **Challenges Encountered:** SSH audio redirection jest complex topic - remote sessions nie mają direct access do host audio hardware. afplay wymaga active audio session co może być problematic przez SSH. osascript beep używa system-level API który jest bardziej accessible dla background processes.
+* **New Dependencies:** Brak nowych zależności - osascript jest standard macOS tool dostępny na wszystkich systemach
+
+####################### 2025-07-07, 16:15:00
+## Task: Display UX Improvements - Session formatting and audio signals
+**Date:** 2025-07-07, 16:15:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Trzy problemy z wyświetlaniem sesji aktywności: (1) brak spacji między ikoną a nazwą sesji dla nieaktywnych sesji, (2) nazwy sesji były ograniczone do 12 znaków z wyrównaniem do 55 pozycji, (3) sesje nieaktywne używały czarną kulkę (⚫) zamiast znaku stop (⛔), (4) sygnały dźwiękowe nie działały przy przejściu sesji do statusu WAITING_FOR_USER.
+* **Solution:** Przeprojektowano system wyświetlania z dynamicznym wyrównaniem, poprawkami ikon statusu, i implementacją sygnałów dźwiękowych dla zmian statusu sesji aktywności zamiast tylko tradycyjnych sesji billingowych.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Zmieniono z fixed alignment (55 znaków) na dynamic alignment bazowany na najdłuższej nazwie projektu w bieżącej liście sesji. To zapewnia idealne wyrównanie myślników (-) niezależnie od długości nazw projektów. Dodano nowy system śledzenia zmian statusu sesji aktywności (_previous_activity_session_statuses) równolegle do istniejącego systemu dla sesji billingowych.
+* **Library/Dependency Choices:** Zachowano approach standard library only. Wykorzystano istniejący system audio signal (afplay + /System/Library/Sounds/Tink.aiff) z fallback na terminal bell. Nie dodano nowych zależności - wszystkie zmiany wykorzystują istniejące komponenty DisplayManager.
+* **Method/Algorithm Choices:** Implementowano dwuetapowe wyrównanie: (1) obliczenie najdłuższej nazwy projektu w filtered_sessions, (2) padding wszystkich nazw do tej szerokości przez ljust(). Audio signal trigger używa session_key (project_name + session_id) do śledzenia zmian statusu i wyzwala się tylko przy przejściu ACTIVE → WAITING_FOR_USER, nie dla wszystkich zmian statusu.
+* **Testing Strategy:** Zmiany były testowane interaktywnie z działającym klientem. Dynamic alignment zapewnia że myślniki są zawsze pod sobą niezależnie od długości nazw projektów. Audio signal system został zintegrowany z istniejącym mechanizmem _check_activity_session_changes() wywoływanym podczas każdego render_full_display().
+* **Other Key Decisions:** Zdecydowano o unified icon system - INACTIVE i STOPPED sessions teraz używają tego samego znaku stop (⛔) dla spójności. Zwiększono limit nazwy projektu z 12 do 50 znaków, co daje więcej miejsca na opisowe nazwy projektów. Audio signal jest ograniczony do jednego sygnału per cykl aktualizacji (break po pierwszym znalezieniu) żeby uniknąć spam.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zaktualizowano status_icons w activity_config - zmieniono INACTIVE z ⚫ na ⛔ dla spójności z STOPPED
+  2. Zwiększono max_project_name_length z 12 do 50 znaków dla lepszej czytelności długich nazw projektów
+  3. Przeprojektowano _render_activity_sessions() - dodano obliczanie dynamic alignment bazowane na najdłuższej nazwie projektu
+  4. Zaktualizowano _render_single_activity_session() - dodano alignment_width parameter i użycie ljust() dla wyrównania
+  5. Dodano _previous_activity_session_statuses dict do DisplayManager.__init__() dla śledzenia zmian statusu sesji aktywności
+  6. Zaimplementowano _check_activity_session_changes() - monitoruje przejścia ACTIVE → WAITING_FOR_USER i wyzwala audio signal
+  7. Zintegrowano audio signal checking w render_full_display() - wywołanie przed renderowaniem activity sessions
+  8. Przetestowano interaktywnie - potwierdzono perfect alignment myślników i zachowanie audio signal system
+* **Challenges Encountered:** Potrzeba was to balance between fixed alignment (predictable but wasteful) i dynamic alignment (optimal ale complex). Dynamic alignment requires two-pass processing - first to calculate longest name, then to render with padding. Audio signal integration musiała być careful żeby nie conflict z existing session state audio signals.
+* **New Dependencies:** Brak nowych zależności - wszystkie zmiany wykorzystują istniejące komponenty DisplayManager i system audio signal
+
+####################### 2025-07-07, 11:50:00
+## Task: Debug Message Cleanup - Usunięcie logów timestampu w kliencie
+**Date:** 2025-07-07, 11:50:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Klient wyświetlał debug message "[DataReader] Timestamp changed: 2025-07-07T11:46:26.536094+00:00 -> 2025-07-07T11:46:36.628843+00:00" przy każdej aktualizacji danych demona (co 10 sekund), zaśmiecając output terminala.
+* **Solution:** Usunięto print() statement z DataReader, zachowując tylko internal debug logging. Komunikat pokazywał poprawne działanie cache invalidation system, ale nie powinien być wyświetlany użytkownikowi.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Problem nie leżał w logice systemu - timestamp-based cache invalidation działał poprawnie. Daemon aktualizuje monitor_data.json co 10 sekund z nowym last_update timestamp, DataReader wykrywa zmianę i odświeża cache, co jest zamierzonym zachowaniem. Problem był tylko kosmetyczny - wyświetlanie debug info w konsoli.
+* **Library/Dependency Choices:** Zachowano istniejącą architekturę cache i logging. Wykorzystano istniejący self.logger.debug() mechanizm zamiast print() dla wewnętrznych debug messages. Nie wymagało dodatkowych bibliotek.
+* **Method/Algorithm Choices:** Usunięto tylko print statement, zachowując logger.debug() dla internal troubleshooting. System cache invalidation nadal działa identycznie - wykrywa zmiany timestamp w pliku JSON i wymusza odświeżenie cached data. To zapewnia że klient zawsze pokazuje najnowsze dane z demona.
+* **Testing Strategy:** Funkcjonalność została potwierdzona through normal usage - cache invalidation nadal działa (dane się odświeżają), ale bez debug messages w konsoli. System timestamp tracking działa poprawnie: daemon → file update → client detects change → cache refresh → display update.
+* **Other Key Decisions:** Zdecydowano o zachowaniu debug logging (logger.debug) dla future troubleshooting ale usunięciu console output (print). To pozwala developerom na debugging cache behavior gdy potrzebne, ale nie zakłóca user experience. System cache synchronization pozostał bez zmian.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zidentyfikowano source debug message w data_reader.py linii 70 - print statement w timestamp change detection
+  2. Usunięto print(f"[DataReader] Timestamp changed: {self._cached_last_update} -> {file_last_update}")
+  3. Zachowano logger.debug(f"Data timestamp changed: {self._cached_last_update} -> {file_last_update}") dla internal logging
+  4. Dodano komentarz # Only log to debug, don't print to console dla clarity
+  5. Potwierdzono że system cache invalidation nadal działa - dane są odświeżane ale bez console spam
+* **Challenges Encountered:** Brak challenges - była to prosta kosmetyczna zmiana. Debug message pokazywał poprawne działanie systemu, ale nie powinien być visible dla end users. Cache invalidation system działa jak zaprojektowany.
+* **New Dependencies:** Brak nowych zależności - zmiana wykorzystywała istniejący logging infrastructure
+
+####################### 2025-07-07, 12:35:00
+## Task: UX Improvements - Czas aktywności i inteligentne odświeżanie ekranu
+**Date:** 2025-07-07, 12:35:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Dwa problemy UX: (1) aktywne sesje pokazywały timestamp startu zamiast czasu aktywności w formacie min:sec, (2) przy zmianach statusu sesji na ekranie pozostawały "śmieci" bo system używał tylko repositioning kursora zamiast pełnego czyszczenia gdy potrzeba.
+* **Solution:** Przeprojektowanie wyświetlania czasu dla wszystkich sesji (aktywnych i nieaktywnych) oraz implementacja inteligentnego systemu wykrywania zmian statusu sesji z automatycznym decydowaniem o pełnym czyszczeniu ekranu vs repositioning kursora.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Zastąpiono _get_inactivity_time_str() uniwersalną metodą _get_activity_time_str() która obsługuje zarówno aktywne (czas od startu) jak i nieaktywne sesje (czas od ostatniego eventu). Dodano _has_activity_sessions_changed() która śledzi zmiany w sesjach i automatycznie decyduje o metodzie odświeżania ekranu. To zapewnia spójne wyświetlanie czasu i eliminuje wizualne artefakty.
+* **Library/Dependency Choices:** Zachowano approach standard library only - wszystkie zmiany wykorzystują istniejące datetime i timezone funkcjonalności. Dodano _previous_activity_sessions dict do śledzenia stanu bez external dependencies. Nie wymagało dodatkowych bibliotek.
+* **Method/Algorithm Choices:** Dla aktywnych sesji używa session.start_time jako reference_time, dla nieaktywnych używa last_event_time z metadata z fallback na start_time. System wykrywania zmian porównuje session_key (project_name + session_id) i status między kolejnymi wywołaniami. Wybranie tego podejścia zapewnia precyzyjne wykrywanie wszystkich typów zmian: nowe sesje, zniknięcie sesji, zmiana statusu.
+* **Testing Strategy:** Przetestowano w real-time z działającym klientem - sesja ACTIVE pokazuje rosnący czas aktywności (11:14) → (11:15) → (11:16). System używa płynnego odświeżania ([H repositioning) gdy brak zmian i pełne czyszczenie ([H[J clear) gdy sesje się zmieniają. Potwierdza to poprawność both logiki timing i screen management.
+* **Other Key Decisions:** Zdecydowano o unified approach dla timing display - wszystkie sesje teraz pokazują czas w formacie (mm:ss) co daje spójność UX. Session change detection jest wykonywane przed każdym renderowaniem żeby catch real-time changes. Zachowano backward compatibility - istniejące verbose mode nadal pokazuje timestamp ale dodaje też activity time.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zastąpiono _get_inactivity_time_str() metodą _get_activity_time_str() która obsługuje wszystkie typy sesji
+  2. Dodano logic dla aktywnych sesji - czas od session.start_time, dla nieaktywnych - czas od last_event_time z metadata
+  3. Zaktualizowano _render_single_activity_session() - usunięto conditional logic dla timestamps, używa unified time_str
+  4. Dodano _previous_activity_sessions dict do konstruktora DisplayManager dla state tracking
+  5. Zaimplementowano _has_activity_sessions_changed() - porównuje session count, nowe/zniknięte sesje, zmiany statusu
+  6. Zaktualizowano render_full_display() - wywołuje change detection przed renderowaniem i decyduje o screen clearing strategy
+  7. Poprawiono verbose mode - rozdzielono timestamp_str (dla metadata) i time_str (dla activity timing)
+  8. Przetestowano w real-time - potwierdzona poprawność timing display i intelligent screen refresh
+* **Challenges Encountered:** Konflikt nazw zmiennych w verbose mode - używano time_str dla dwóch różnych celów (timestamp i activity time). Rozwiązano przez wprowadzenie timestamp_str dla metadata i zachowanie time_str dla activity timing. Wymagało careful refactoring żeby nie zepsuć istniejących funkcjonalności.
+* **New Dependencies:** Brak nowych zależności - wszystkie zmiany wykorzystują standardową bibliotekę Python i istniejące komponenty datetime/timezone
+
+####################### 2025-07-07, 12:28:00
+## Task: Fix Hook Events - Rozwiązanie problemu z ciągłymi eventami 'stop'
+**Date:** 2025-07-07, 12:28:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Klient cały czas pokazywał status "WAITING_FOR_USER" mimo aktywnej pracy Claude Code, ponieważ ostatnim logiem zawsze był "stop" event. Problem wynikał z nieprawidłowej konfiguracji hooków - używano PostToolUse zamiast Stop, przez co po każdej operacji narzędzia był generowany event "stop".
+* **Solution:** Przeprojektowanie konfiguracji hooków Claude Code - zmiana z PostToolUse na Stop dla rzeczywistego zakończenia sesji, oraz utworzenie nowego activity_hook.py dla PreToolUse eventów z poprawnym typem "activity".
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Przeanaliza dokumentacji Claude Code hooks wykazała, że dostępne są eventy: PreToolUse, PostToolUse, Stop, SubagentStop, Notification. Problem leżał w użyciu PostToolUse który wyzwala się po każdym narzędziu, zamiast Stop który wyzwala się gdy Claude kończy odpowiedź. Konfiguracja PreToolUse → Stop zapewnia prawidłowe śledzenie: activity podczas pracy, stop gdy Claude skończył.
+* **Library/Dependency Choices:** Zachowano istniejące zależności - tylko standardowa biblioteka Python. Skopiowano notification_hook.py do activity_hook.py i dostosowano do obsługi PreToolUse eventów zamiast Notification eventów. Nie wymagało to dodatkowych bibliotek.
+* **Method/Algorithm Choices:** Zmieniono konfigurację ~/.claude/settings.json z PostToolUse na Stop dla stop_hook.py. Utworzono activity_hook.py który generuje event_type: "activity" zamiast "notification". Zaktualizowano HookLogParser żeby obsługiwał zarówno "notification" jak i "activity" eventy. Smart status logic pozostał bez zmian - działał poprawnie, problem był w źródle danych.
+* **Testing Strategy:** Po restarcie sesji Claude Code, nowe hooki zaczęły generować poprawne eventy - "activity" dla PreToolUse i "stop" tylko na końcu sesji. Monitoring pokazał zmianę statusu z ciągłego "WAITING_FOR_USER" na "ACTIVE" podczas pracy Claude Code. Ostatnie eventy w logu to "activity" zamiast "stop" pairs.
+* **Other Key Decisions:** Zdecydowano o zachowaniu starego notification_hook.py dla backward compatibility, a stworzeniu nowego activity_hook.py. Aktualizacja konfiguracji wymagała restartu sesji Claude Code żeby nowe hooki zaczęły działać. Zaktualizowano settings.json zamiast tworzenia nowego pliku konfiguracyjnego.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Przeanalizowano dokumentację Claude Code hooks - zidentyfikowano dostępne eventy (PreToolUse, PostToolUse, Stop, SubagentStop, Notification)
+  2. Zdiagnozowano problem - PostToolUse wyzwala się po każdym narzędziu, generując ciągłe "stop" eventy zamiast tylko na końcu sesji
+  3. Zaktualizowano ~/.claude/settings.json - zmieniono PostToolUse na Stop dla stop_hook.py
+  4. Utworzono activity_hook.py skopiowany z notification_hook.py z dostosowaniem do PreToolUse eventów
+  5. Zmieniono event_type z "notification" na "activity" w activity_hook.py
+  6. Zaktualizowano ~/.claude/settings.json - zmieniono notification_hook.py na activity_hook.py dla PreToolUse
+  7. Zaktualizowano HookLogParser - dodano "activity" do listy obsługiwanych event_type obok "notification"
+  8. Zaktualizowano smart status logic - dodano komentarz że obsługuje activity/notification eventy
+  9. Zrestartowano sesję Claude Code ręcznie - nowe hooki zaczęły generować prawidłowe eventy
+  10. Potwierdzono naprawę - monitoring pokazuje "ACTIVE" zamiast "WAITING_FOR_USER" podczas pracy Claude Code
+* **Challenges Encountered:** Konfiguracja hooków wymagała restartu sesji Claude Code żeby zaczęła działać. Stare eventy w logu pokazywały "notification" ale nowe pokazują "activity" - wymagało to obsługi obu typów w HookLogParser. Zrozumienie różnicy między PostToolUse (po każdym narzędziu) a Stop (po odpowiedzi Claude) było kluczowe.
+* **New Dependencies:** Brak nowych zależności - wykorzystano istniejące komponenty i standardową bibliotekę Python
+
+####################### 2025-07-07, 15:30:00
+## Task: Project-Based Activity Session Grouping - Zmiana z session_id na project_name
+**Date:** 2025-07-07, 15:30:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** System grupował activity sessions po session_id Claude Code, co było niepraktyczne dla użytkowników. Lepszym podejściem jest grupowanie po nazwie projektu (dirname), żeby widzieć aktywność w konkretnym projekcie, a nie w sesji Claude.
+* **Solution:** Przeprojektowano system hooks i activity tracker, żeby używał basename z os.getcwd() jako project_name dla grupowania sesji aktywności zamiast session_id Claude Code.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Zmieniono klucz grupowania z session_id na project_name w całym systemie - hook scripts teraz zbierają project_name z os.getcwd(), ActivitySessionData ma nowe wymagane pole project_name, SessionActivityTracker grupuje po project_name zamiast session_id. To zapewnia że wszystkie hook eventy z tego samego katalogu/projektu są grupowane razem, niezależnie od session_id Claude Code.
+* **Library/Dependency Choices:** Używa standardowej biblioteki Python (os.path.basename, os.getcwd) - brak nowych zależności. Zachowano istniejące podejście z session_id jako pole referencyjne, ale project_name stał się głównym kluczem grupowania.
+* **Method/Algorithm Choices:** Hook scripts używają os.path.basename(os.getcwd()) do uzyskania nazwy projektu. _merge_sessions() w SessionActivityTracker zmieniono z grupowania po session_id na project_name. Display manager pokazuje nazwy projektów zamiast skróconych session IDs. To daje użytkownikom bardziej czytelny view aktywności per projekt.
+* **Testing Strategy:** Zaktualizowano wszystkie testy żeby uwzględniały nowe pole project_name - testy ActivitySessionData, HookLogParser, SessionActivityTracker i hook scripts. Dodano project_name do wszystkich test fixtures i mock data. Zachowano backward compatibility w logice testowej.
+* **Other Key Decisions:** Zachowano session_id jako pole referencyjne dla debugowania, ale project_name stał się głównym identyfikatorem. Hook scripts dodają project_name automatycznie bez konieczności zmian w konfiguracji Claude Code. Display manager używa max_project_name_length zamiast max_session_id_length dla lepszej czytelności.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zmodyfikowano notification_hook.py i stop_hook.py - dodano os.getcwd() i project_name do logowanych eventów
+  2. Zaktualizowano ActivitySessionData model - dodano project_name jako wymagane pole przed session_id
+  3. Przepisano SessionActivityTracker._merge_sessions() - zmieniono grupowanie z session_id na project_name
+  4. Dodano get_session_by_project() method do SessionActivityTracker dla nowego API
+  5. Zaktualizowano DisplayManager - zmieniono wyświetlanie z session IDs na project names z truncation
+  6. Przepisano wszystkie testy - dodano project_name do fixtures w test_activity_session_data.py, test_hook_log_parser.py, test_session_activity_tracker.py
+  7. Naprawiono testy hook scripts - zaktualizowano sprawdzanie default log file path (claude_activity.log bez daty)
+  8. Zaktualizowano HookLogParser - dodano project_name do required_fields validation
+* **Challenges Encountered:** Wszystkie testy wymagały aktualizacji żeby dodać project_name field. Niektóre testy sprawdzały stare konwencje nazewnictwa plików (claude_activity_DATE.log vs claude_activity.log). Wymagało to systematycznej aktualizacji test fixtures i assertions.
+* **New Dependencies:** Brak nowych zależności - używa tylko standardowej biblioteki Python (os.path, os.getcwd)
+
+####################### 2025-07-07, 11:18:00
+## Task: SessionActivityTracker Cache Bug Fix - Problemy z odświeżaniem cache
+**Date:** 2025-07-07, 11:18:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** SessionActivityTracker pokazywał nieaktualne statusy sesji - stara sesja (b33e4f96-322...) była pokazywana jako ACTIVE mimo ostatniego zdarzenia "stop" z 09:08:54, podczas gdy powinna być IDLE/INACTIVE. Cache nie odświeżał się z nowymi zdarzeniami w pliku logów.
+* **Solution:** Naprawiono logikę cache'u w update_from_log_files() przez usunięcie sprawdzania _processed_files dla pojedynczych plików i wymuszenie przetwarzania wszystkich plików gdy cache jest invalid.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Problem leżał w dwupoziomowej logice cache - _is_cache_valid() sprawdzał modification time pliku (poziom pliku) ale update_from_log_files() używał _processed_files (poziom per-plik) co powodowało konflikt. Zrezygnowano z _processed_files check na rzecz pełnego przetwarzania gdy cache jest invalid, co jest bardziej deterministyczne i niezawodne.
+* **Library/Dependency Choices:** Zachowano istniejącą architekturę bez dodawania nowych zależności. Wykorzystano istniejący mechanizm _is_cache_valid() który monitoruje os.path.getmtime() i _file_modification_times dla wykrywania zmian plików.
+* **Method/Algorithm Choices:** Zastąpiono logikę "if log_file not in self._processed_files or force_update" prostym przetwarzaniem wszystkich plików gdy cache jest invalid. To zapewnia, że wszystkie nowe zdarzenia w pliku są zawsze odczytywane. Cache validity jest teraz jedynym źródłem prawdy o tym czy dane są aktualne.
+* **Testing Strategy:** Problem został zidentyfikowany przez analizę różnic między zawartością claude_activity.log (ostatnie zdarzenie 09:08:54 stop) a danymi w monitor_data.json (ostatnie zdarzenie 09:05:34 notification). Po naprawie daemon automatycznie zaczął pokazywać poprawne statusy.
+* **Other Key Decisions:** Zachowano mechanizm background updates i threading. Nie zmieniano _is_cache_valid() który działał poprawnie - problem był tylko w wykorzystaniu jego rezultatu. Po naprawie sesje pokazują prawidłowe statusy: IDLE dla zakończonych sesji, ACTIVE dla bieżących.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zidentyfikowano problem przez porównanie claude_activity.log z monitor_data.json - ostatnie zdarzenia się nie zgadzały
+  2. Przeanalizowano kod SessionActivityTracker.update_from_log_files() i znaleziono konflikt między _is_cache_valid() a _processed_files
+  3. Zmodyfikowano src/daemon/session_activity_tracker.py linie 88-96 - usunięto check "_processed_files" i wymuszono przetwarzanie wszystkich plików gdy cache invalid
+  4. Zabito stary daemon (kill 94726) i uruchomiono nowy z naprawionym kodem
+  5. Potwierdzono naprawę - sesja b33e4f96-322... zmieniła status z ACTIVE na IDLE, sesja bf1d29fd-35e... poprawnie pokazuje ACTIVE
+  6. Klient teraz wyświetla: 🔵 ACTIVE dla bieżącej sesji, 💤 IDLE dla starszej sesji
+* **Challenges Encountered:** Cache był dwupoziomowy - _is_cache_valid() na poziomie pliku vs _processed_files na poziomie logiki biznesowej. System pomijał pliki już "przetworzone" nawet gdy były zaktualizowane. Wymagał restart daemon-a żeby załadować nową logikę.
+* **New Dependencies:** Brak nowych zależności - naprawa wykorzystywała istniejące mechanizmy
+
+####################### 2025-07-07, 11:10:00
+## Task: Hook Log File Architecture Fix - Usunięcie datowania plików
+**Date:** 2025-07-07, 11:10:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Klient pokazywał "No activity sessions found" z powodu datowania plików logów (claude_activity_2025-07-07.log vs claude_activity_2025-07-06.log), co wprowadzało niepotrzebne zamieszanie gdy zawartość i tak ma być kasowana po 5h oknie billingowym
+* **Solution:** Refaktoryzacja systemu logów na pojedynczy plik claude_activity.log bez datowania, z automatycznym czyszczeniem zawartości po zakończeniu 5h okna i poprawioną obsługą stref czasowych w kliencie
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Zrezygnowano z datowania plików logów na rzecz pojedynczego pliku claude_activity.log, ponieważ zawartość jest oczyszczana po zakończeniu 5h okna billingowego. Datowanie wprowadzało niepotrzebną złożoność - system musiał wykrywać pliki z różnymi datami, a dane starsze niż 5h były i tak nieistotne. Pojedynczy plik upraszcza logikę discover_log_files() i eliminuje problemy z przełączaniem dat.
+* **Library/Dependency Choices:** Zachowano standard library only approach. Użyto istniejących mechanizmów datetime i timezone dla obsługi stref czasowych. Nie dodano nowych zależności - wszystkie zmiany wykorzystują już istniejące komponenty.
+* **Method/Algorithm Choices:** Zastąpiono glob pattern search (`claude_activity_*.log`) prostym sprawdzeniem istnienia pojedynczego pliku. Dodano nową metodę cleanup_completed_billing_sessions() która analizuje czy wszystkie sesje są starsze niż 5h i czyści plik przez truncation. Poprawiono wyświetlanie czasu - dla ACTIVE sesji pokazuje czas lokalny startu, dla nieaktywnych pokazuje czas nieaktywności w formacie mm:ss.
+* **Testing Strategy:** Wykorzystano istniejącą logikę testową - zmiany były minimalne i backward compatible. System automatycznie przeszedł na nowy format gdy hook skrypty zaczęły pisać do nowego pliku, co potwierdziło robustność architektury.
+* **Other Key Decisions:** Zdecydowano o automatic cleanup zamiast manual maintenance. Plik jest czyszczony przez truncation zamiast usuwania, co zapewnia ciągłość działania hook-ów. Zrezygnowano z migration logic - system automatycznie przeszedł na nowy format po restart daemon-a.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Zmodyfikowano notification_hook.py i stop_hook.py - usunięto generowanie nazw z datą, użyto stałej ścieżki ~/.config/claude-monitor/hooks/claude_activity.log
+  2. Zaktualizowano constants.py - zmieniono HOOK_LOG_FILE_PATTERN z "claude_activity_{date}.log" na "claude_activity.log"
+  3. Przepisano SessionActivityTracker._discover_log_files() - zastąpiono glob search prostym sprawdzeniem os.path.exists()
+  4. Dodano metodę cleanup_completed_billing_sessions() do SessionActivityTracker z logiką 5h window cleanup
+  5. Zintegrowano cleanup z DataCollector._collect_activity_sessions() - wywołanie po update_from_log_files()
+  6. Poprawiono DisplayManager._get_inactivity_time_str() i _render_single_activity_session() - lokalna strefa czasowa i format mm:ss dla nieaktywności
+  7. Zrestartowano daemon - nowy kod automatycznie zaczął przetwarzać plik claude_activity.log bez daty
+* **Challenges Encountered:** Problem z restart daemon-a - musiał zostać zabity i uruchomiony ponownie żeby załadować nowy kod. Hook-i automatycznie przeszły na nowy format pisząc do claude_activity.log. Sesje wcześniejsze z datowanego pliku zostały porzucone, ale to było zamierzone zachowanie.
+* **New Dependencies:** Brak nowych zależności - wszystkie zmiany wykorzystują standardową bibliotekę Python
+
 ####################### 2025-07-07, 10:50:00
 ## Task: FAZA 4: Rozszerzenie Client Display
 **Date:** 2025-07-07, 10:50:00

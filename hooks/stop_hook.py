@@ -58,7 +58,11 @@ def create_stop_event(stop_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     stop_type = determine_stop_type(stop_data)
     
+    # Get project name from current working directory
+    project_name = os.path.basename(os.getcwd())
+    
     return {
+        'project_name': project_name,
         'session_id': stop_data.get('session_id', 'unknown'),
         'event_type': 'stop',
         'data': {
@@ -82,9 +86,9 @@ def main():
     # Get log file path from environment or use default
     log_file = os.environ.get('CLAUDE_ACTIVITY_LOG_FILE')
     if not log_file:
-        # Default log file with current date
-        today = datetime.now().strftime('%Y-%m-%d')
-        log_file = f'claude_activity_{today}.log'
+        # Default log file - single file, no date suffix
+        hooks_dir = os.path.expanduser('~/.config/claude-monitor/hooks')
+        log_file = os.path.join(hooks_dir, 'claude_activity.log')
     
     # Create stop event
     stop_event = create_stop_event(stop_data)

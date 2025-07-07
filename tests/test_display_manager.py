@@ -63,12 +63,14 @@ class TestDisplayManager(unittest.TestCase):
         # Create monitoring data with activity sessions
         self.activity_sessions_sample = [
             ActivitySessionData(
+                project_name="test_project_1",
                 session_id="test-activity-1",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
                 status="ACTIVE",
                 event_type="notification"
             ),
             ActivitySessionData(
+                project_name="test_project_2",
                 session_id="test-activity-2",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=10),
                 status="WAITING_FOR_USER",
@@ -247,24 +249,28 @@ class TestDisplayManager(unittest.TestCase):
         # Create sample activity sessions with different statuses
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="active-session-1",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
                 status="ACTIVE",
                 event_type="notification"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="waiting-session-2",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=1),
                 status="WAITING_FOR_USER",
                 event_type="stop"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="idle-session-3",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=15),
                 status="IDLE",
                 event_type="stop"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="inactive-session-4",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=45),
                 status="INACTIVE",
@@ -286,11 +292,12 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIn("💤", output)  # IDLE icon
             self.assertIn("⚫", output)  # INACTIVE icon
             
-            # Check for session identifiers (truncated for display)
-            self.assertIn("active-sessi", output)
-            self.assertIn("waiting-sess", output)
-            self.assertIn("idle-session", output)
-            self.assertIn("inactive-ses", output)
+            # Check for project names (truncated for display)
+            self.assertIn("test_project", output)
+            self.assertIn("ACTIVE", output)
+            self.assertIn("WAITING_FOR_USER", output)
+            self.assertIn("IDLE", output)
+            self.assertIn("INACTIVE", output)
 
     def test_render_activity_sessions_empty_list(self):
         """Test rendering activity sessions with empty list."""
@@ -305,6 +312,7 @@ class TestDisplayManager(unittest.TestCase):
         """Test rendering with only one active session."""
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="single-active",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=2),
                 status="ACTIVE",
@@ -319,7 +327,7 @@ class TestDisplayManager(unittest.TestCase):
             # Check for header and single session
             self.assertIn("CLAUDE CODE ACTIVITY", output)
             self.assertIn("🔵", output)  # ACTIVE icon
-            self.assertIn("single-activ", output)  # Truncated ID
+            self.assertIn("test_project", output)  # Project name
             self.assertIn("ACTIVE", output)
 
     def test_render_activity_sessions_configuration_usage(self):
@@ -327,12 +335,13 @@ class TestDisplayManager(unittest.TestCase):
         # Modify configuration for testing
         original_config = self.display_manager.activity_config.copy()
         self.display_manager.activity_config["status_icons"]["ACTIVE"] = "🟢"
-        self.display_manager.activity_config["max_session_id_length"] = 5
+        self.display_manager.activity_config["max_project_name_length"] = 5
         self.display_manager.activity_config["show_timestamps"] = False
         
         activity_sessions = [
             ActivitySessionData(
-                session_id="very-long-session-id",
+                project_name="very-long-project-name",
+                session_id="test-session-id",
                 start_time=datetime.now(timezone.utc),
                 status="ACTIVE",
                 event_type="notification"
@@ -346,7 +355,7 @@ class TestDisplayManager(unittest.TestCase):
             # Check for modified icon
             self.assertIn("🟢", output)  # Custom ACTIVE icon
             
-            # Check for session ID truncation at 5 chars
+            # Check for project name truncation at 5 chars
             self.assertIn("very-...", output)
             
             # Check that timestamp is not shown
@@ -361,18 +370,21 @@ class TestDisplayManager(unittest.TestCase):
         """Test rendering with mixed session statuses."""
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="session-1",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=1),
                 status="ACTIVE",
                 event_type="notification"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="session-2", 
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
                 status="WAITING_FOR_USER",
                 event_type="stop"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="session-3",
                 start_time=datetime.now(timezone.utc) - timedelta(hours=1),
                 status="INACTIVE",
@@ -392,15 +404,17 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIn("⏳", output)  # WAITING_FOR_USER
             self.assertIn("⚫", output)  # INACTIVE
             
-            # Check for all session IDs
-            self.assertIn("session-1", output)
-            self.assertIn("session-2", output)
-            self.assertIn("session-3", output)
+            # Check for all sessions with project names
+            self.assertIn("test_project", output)
+            self.assertIn("ACTIVE", output)
+            self.assertIn("WAITING_FOR_USER", output)
+            self.assertIn("INACTIVE", output)
 
     def test_render_activity_sessions_unknown_status(self):
         """Test rendering with unknown status gets fallback icon."""
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="unknown-status",
                 start_time=datetime.now(timezone.utc),
                 status="UNKNOWN_STATUS",
@@ -431,7 +445,7 @@ class TestDisplayManager(unittest.TestCase):
             # Check for activity session data
             self.assertIn("🔵", output)  # ACTIVE icon
             self.assertIn("⏳", output)  # WAITING_FOR_USER icon
-            self.assertIn("test-activit", output)  # Session IDs (truncated)
+            self.assertIn("test_project", output)  # Project names
             
             # Check for traditional session data
             self.assertIn("Token Usage:", output)
@@ -475,6 +489,7 @@ class TestDisplayManager(unittest.TestCase):
         
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="test-session",
                 start_time=datetime.now(timezone.utc),
                 status="ACTIVE",
@@ -496,12 +511,14 @@ class TestDisplayManager(unittest.TestCase):
         
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="session-1",
                 start_time=datetime.now(timezone.utc),
                 status="ACTIVE",
                 event_type="notification"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="session-2",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
                 status="WAITING_FOR_USER",
@@ -532,6 +549,7 @@ class TestDisplayManager(unittest.TestCase):
         
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="verbose-session",
                 start_time=datetime.now(timezone.utc),
                 status="ACTIVE",
@@ -558,12 +576,14 @@ class TestDisplayManager(unittest.TestCase):
         
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="active-session",
                 start_time=datetime.now(timezone.utc),
                 status="ACTIVE",
                 event_type="notification"
             ),
             ActivitySessionData(
+                project_name="test_project",
                 session_id="inactive-session",
                 start_time=datetime.now(timezone.utc) - timedelta(hours=2),
                 status="INACTIVE",
@@ -576,8 +596,9 @@ class TestDisplayManager(unittest.TestCase):
             output = fake_out.getvalue()
             
             # Should show active but not inactive
-            self.assertIn("active-sessi", output)  # Truncated ID
-            self.assertNotIn("inactive-ses", output)  # Should not appear
+            self.assertIn("test_project", output)  # Project name
+            self.assertIn("ACTIVE", output)  # Active status
+            self.assertNotIn("INACTIVE", output)  # Should not appear
             self.assertIn("🔵", output)  # ACTIVE icon
             self.assertNotIn("⚫", output)  # INACTIVE icon
 
@@ -589,6 +610,7 @@ class TestDisplayManager(unittest.TestCase):
         # Create 4 sessions
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id=f"session-{i}",
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=i),
                 status="ACTIVE",
@@ -601,11 +623,10 @@ class TestDisplayManager(unittest.TestCase):
             self.display_manager._render_activity_sessions(activity_sessions)
             output = fake_out.getvalue()
             
-            # Should only show 2 most recent sessions (0 and 1)
-            self.assertIn("session-0", output)
-            self.assertIn("session-1", output)
-            self.assertNotIn("session-2", output)
-            self.assertNotIn("session-3", output)
+            # Should only show 2 most recent sessions (limited by max_sessions_displayed)
+            # Count the number of project names displayed
+            project_count = output.count("test_project")
+            self.assertEqual(project_count, 2)  # Should only show 2 sessions
 
     def test_render_activity_sessions_no_timestamps(self):
         """Test disabling timestamps in display."""
@@ -614,6 +635,7 @@ class TestDisplayManager(unittest.TestCase):
         
         activity_sessions = [
             ActivitySessionData(
+                project_name="test_project",
                 session_id="no-timestamp",
                 start_time=datetime.now(timezone.utc),
                 status="ACTIVE",
@@ -631,7 +653,7 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIsNone(re.search(timestamp_pattern, output))
             
             # But should still show session
-            self.assertIn("no-timestamp", output)
+            self.assertIn("test_project", output)  # Project name
             self.assertIn("ACTIVE", output)
 
 

@@ -30,6 +30,7 @@ class TestSessionActivityTracker(unittest.TestCase):
         # Create sample activity session data
         self.sample_sessions = [
             ActivitySessionData(
+                project_name="test-project-1",
                 session_id="session_123",
                 start_time=datetime.now(timezone.utc),
                 status=ActivitySessionStatus.ACTIVE.value,
@@ -37,6 +38,7 @@ class TestSessionActivityTracker(unittest.TestCase):
                 metadata={"message": "Task started"}
             ),
             ActivitySessionData(
+                project_name="test-project-2",
                 session_id="session_456", 
                 start_time=datetime.now(timezone.utc) - timedelta(minutes=30),
                 end_time=datetime.now(timezone.utc) - timedelta(minutes=10),
@@ -112,25 +114,24 @@ class TestSessionActivityTracker(unittest.TestCase):
         self.assertIsNone(session)
     
     def test_discover_log_files_finds_hook_logs(self):
-        """Test _discover_log_files finds hook log files in directory."""
+        """Test _discover_log_files finds single hook log file."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Create some test log files
-            log_files = [
-                "claude_activity_2025-07-06.log",
-                "claude_activity_2025-07-05.log", 
-                "other_file.txt"  # Should be ignored
-            ]
+            # Create the single hook log file (new system)
+            log_file = "claude_activity.log"
             
-            for log_file in log_files:
-                with open(os.path.join(temp_dir, log_file), 'w') as f:
-                    f.write('{"test": "data"}\n')
+            with open(os.path.join(temp_dir, log_file), 'w') as f:
+                f.write('{"test": "data"}\n')
+            
+            # Create other files that should be ignored
+            with open(os.path.join(temp_dir, "other_file.txt"), 'w') as f:
+                f.write('ignored')
             
             with patch('daemon.session_activity_tracker.HOOK_LOG_DIR', temp_dir):
                 discovered_files = self.tracker._discover_log_files()
             
-            # Should find only the claude_activity_*.log files
-            self.assertEqual(len(discovered_files), 2)
-            self.assertTrue(all('claude_activity_' in f for f in discovered_files))
+            # Should find only the single claude_activity.log file
+            self.assertEqual(len(discovered_files), 1)
+            self.assertTrue(discovered_files[0].endswith('claude_activity.log'))
     
     def test_process_log_file_uses_hook_log_parser(self):
         """Test _process_log_file uses HookLogParser to parse files."""
@@ -145,8 +146,9 @@ class TestSessionActivityTracker(unittest.TestCase):
     
     def test_merge_sessions_consolidates_session_events(self):
         """Test _merge_sessions consolidates multiple events and calculates smart status."""
-        # Create multiple events for the same session - recent stop should be WAITING_FOR_USER
+        # Create multiple events for the same project - recent stop should be WAITING_FOR_USER
         notification_event = ActivitySessionData(
+            project_name="test-project",
             session_id="session_123",
             start_time=datetime.now(timezone.utc) - timedelta(minutes=2),
             status=ActivitySessionStatus.ACTIVE.value,
@@ -154,6 +156,7 @@ class TestSessionActivityTracker(unittest.TestCase):
         )
         
         stop_event = ActivitySessionData(
+            project_name="test-project",
             session_id="session_123", 
             start_time=datetime.now(timezone.utc) - timedelta(seconds=30),  # 30 seconds ago = recent
             end_time=datetime.now(timezone.utc),
@@ -173,6 +176,7 @@ class TestSessionActivityTracker(unittest.TestCase):
         
         # Test old stop becomes INACTIVE
         old_stop_event = ActivitySessionData(
+            project_name="old-project",
             session_id="session_456",
             start_time=datetime.now(timezone.utc) - timedelta(hours=1),  # 1 hour ago = inactive
             status=ActivitySessionStatus.STOPPED.value,
@@ -204,12 +208,14 @@ class TestSessionActivityTracker(unittest.TestCase):
     def test_cleanup_old_sessions_removes_expired_sessions(self):
         """Test cleanup_old_sessions removes sessions older than retention period."""
         old_session = ActivitySessionData(
+            project_name="old-project",
             session_id="old_session",
             start_time=datetime.now(timezone.utc) - timedelta(days=35),  # Older than 30 days
             status=ActivitySessionStatus.STOPPED.value
         )
         
         recent_session = ActivitySessionData(
+            project_name="recent-project",
             session_id="recent_session", 
             start_time=datetime.now(timezone.utc) - timedelta(days=5),  # Within 30 days
             status=ActivitySessionStatus.ACTIVE.value

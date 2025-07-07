@@ -82,8 +82,13 @@ class ClaudeClient:
             self.display_manager.render_daemon_offline_display()
             return False
         
-        # Render the display
-        self.display_manager.render_full_display(monitoring_data)
+        # Render the display and check if data refresh is needed
+        needs_refresh = self.display_manager.render_full_display(monitoring_data)
+        
+        # If activity sessions changed, force refresh of data for next iteration
+        if needs_refresh:
+            self.data_reader.clear_cache()
+        
         return True
 
     def show_daemon_not_running_message(self):

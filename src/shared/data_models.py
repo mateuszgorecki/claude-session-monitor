@@ -111,6 +111,7 @@ class SessionData:
 class ActivitySessionData:
     """Represents data for a Claude Code activity session."""
     
+    project_name: str
     session_id: str
     start_time: datetime
     status: str
@@ -134,6 +135,7 @@ class ActivitySessionData:
         end_time = datetime.fromisoformat(data['end_time']) if data['end_time'] else None
         
         return cls(
+            project_name=data['project_name'],
             session_id=data['session_id'],
             start_time=start_time,
             status=data['status'],
@@ -196,11 +198,15 @@ class ActivitySessionData:
                 return ActivitySessionStatus.IDLE.value
             else:  # Old stop
                 return ActivitySessionStatus.INACTIVE.value
-        else:  # Last event was notification (non-stop)
+        else:  # Last event was activity/notification (non-stop)
             return ActivitySessionStatus.ACTIVE.value
 
     def validate_schema(self) -> bool:
         """Validate the ActivitySessionData against schema rules."""
+        # Check project_name is not empty
+        if not self.project_name or not self.project_name.strip():
+            raise ValidationError("project_name cannot be empty")
+        
         # Check session_id is not empty
         if not self.session_id or not self.session_id.strip():
             raise ValidationError("session_id cannot be empty")

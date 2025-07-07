@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Claude Code Notification Hook
+Claude Code Activity Hook
 
-This script is called by Claude Code when notifications are sent.
-It reads the notification data from stdin and logs it to a file for
+This script is called by Claude Code before tool use to indicate session activity.
+It reads the tool use data from stdin and logs it to a file for
 the session monitor daemon to process.
 """
 
@@ -18,14 +18,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from hooks.hook_utils import HookLogger
 
 
-def parse_notification_data(stdin_input: str) -> Optional[Dict[str, Any]]:
-    """Parse notification data from stdin JSON input.
+def parse_activity_data(stdin_input: str) -> Optional[Dict[str, Any]]:
+    """Parse activity data from stdin JSON input.
     
     Args:
         stdin_input: JSON string from stdin
         
     Returns:
-        Parsed notification data or None if invalid
+        Parsed activity data or None if invalid
     """
     try:
         return json.loads(stdin_input.strip())
@@ -33,11 +33,11 @@ def parse_notification_data(stdin_input: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def create_activity_event(notification_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Create an activity event from notification data.
+def create_activity_event(activity_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create an activity event from PreToolUse data.
     
     Args:
-        notification_data: Parsed notification data from Claude Code
+        activity_data: Parsed activity data from Claude Code
         
     Returns:
         Activity event formatted for logging
@@ -47,24 +47,24 @@ def create_activity_event(notification_data: Dict[str, Any]) -> Dict[str, Any]:
     
     return {
         'project_name': project_name,
-        'session_id': notification_data.get('session_id', 'unknown'),
-        'event_type': 'notification',
+        'session_id': activity_data.get('session_id', 'unknown'),
+        'event_type': 'activity',
         'data': {
-            'message': notification_data.get('message', ''),
-            'title': notification_data.get('title', ''),
-            'transcript_path': notification_data.get('transcript_path', '')
+            'tool_name': activity_data.get('tool_name', ''),
+            'tool_parameters': activity_data.get('parameters', {}),
+            'transcript_path': activity_data.get('transcript_path', '')
         }
     }
 
 
 def main():
-    """Main function that processes stdin and logs notification events."""
-    # Read notification data from stdin
+    """Main function that processes stdin and logs activity events."""
+    # Read activity data from stdin
     stdin_input = sys.stdin.read()
     
-    # Parse the notification data
-    notification_data = parse_notification_data(stdin_input)
-    if not notification_data:
+    # Parse the activity data
+    activity_data = parse_activity_data(stdin_input)
+    if not activity_data:
         return  # Skip logging if data is invalid
     
     # Get log file path from environment or use default
@@ -75,7 +75,7 @@ def main():
         log_file = os.path.join(hooks_dir, 'claude_activity.log')
     
     # Create activity event
-    activity_event = create_activity_event(notification_data)
+    activity_event = create_activity_event(activity_data)
     
     # Log the event
     logger = HookLogger(log_file)

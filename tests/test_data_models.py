@@ -161,6 +161,7 @@ class TestMonitoringData(unittest.TestCase):
         )
         
         activity_session = ActivitySessionData(
+            project_name="test_project",
             session_id="activity_session",
             start_time=datetime(2024, 1, 15, 10, 30, tzinfo=ZoneInfo("UTC")),
             status="ACTIVE",

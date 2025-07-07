@@ -146,8 +146,7 @@ class TestNotificationHook(unittest.TestCase):
         # Verify HookLogger was initialized with default path
         mock_hook_logger.assert_called_once()
         args = mock_hook_logger.call_args[0]
-        self.assertIn('claude_activity_', args[0])
-        self.assertTrue(args[0].endswith('.log'))
+        self.assertIn('claude_activity.log', args[0])
 
 
 if __name__ == '__main__':
