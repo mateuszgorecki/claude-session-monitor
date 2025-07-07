@@ -42,6 +42,45 @@ A Python-based real-time monitoring tool for Claude Code Max Sessions usage, cos
 
 ## Installation
 
+### Quick Setup (Copy & Execute)
+
+```bash
+# 1. Install ccusage (required)
+curl -fsSL https://raw.githubusercontent.com/ryoppippi/ccusage/main/install.sh | sh
+
+# 2. Install uv package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. Clone and setup project
+git clone https://github.com/emssik/claude-session-monitor.git
+cd claude-session-monitor
+uv venv
+
+# 4. Install daemon service (macOS)
+./scripts/install_cron.sh
+
+# 5. Optional: Install better notifications (macOS)
+brew install terminal-notifier
+
+# 6. Setup Claude Code hooks (optional - MANUAL STEP)
+chmod +x hooks/activity_hook.py
+chmod +x hooks/stop_hook.py
+# Add to ~/.claude/settings.json:
+# {
+#   "hooks": {
+#     "PreToolUse": {
+#       "executable": "/absolute/path/to/claude-session-monitor/hooks/activity_hook.py"
+#     },
+#     "Stop": {
+#       "executable": "/absolute/path/to/claude-session-monitor/hooks/stop_hook.py"
+#     }
+#   }
+# }
+
+# 7. Run client
+uv run python3 claude_client.py
+```
+
 ### Method 1: Complete System (Recommended)
 
 1. **Install ccusage** following instructions at: https://github.com/ryoppippi/ccusage
