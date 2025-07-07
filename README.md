@@ -9,7 +9,7 @@ As a human, I don't know what the code looks like and I'm completely not interes
 
 ## History
 
-https://www.linkedin.com/posts/daniel-roziecki-znajomy-powiedzia%C5%82-mi-%C5%BCe-do-tego-trzeba-activity-7343537196462714881-tFat (PL Only)
+https://www.linkedin.com/posts/daniel-roziecki_znajomy-powiedzia%C5%82-mi-%C5%BCe-do-tego-trzeba-activity-7343537196462714881-tFat?utm_source=share&utm_medium=member_desktop&rcm=ACoAABpT_LwBUuuTch-E_kBfdujLPQlgPP-m_HI (PL Only)
 
 A friend told me that you need the right mindset for this, and I think he's right.
 
