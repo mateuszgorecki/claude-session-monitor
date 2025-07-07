@@ -2,6 +2,60 @@
 
 This file tracks the progress and implementation details for improving the session cleanup logic in the Claude session monitor.
 
+####################### 2025-07-07, 15:15:00
+## Task: Audio Signal 30-Second Delay Implementation
+**Date:** 2025-07-07
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Audio signals (double beeps) were playing immediately when sessions transitioned from ACTIVE to WAITING_FOR_USER status, causing interruptions during normal tool usage workflows
+* **Solution:** Modified audio signal logic to only play double beeps when WAITING_FOR_USER status persists for 30 seconds or more, reducing false alerts while maintaining useful notifications for extended waiting periods
+
+### 2. Reasoning & Justification
+
+**Architectural Choices:**
+- **Timestamp Tracking Pattern**: Added `_waiting_for_user_timestamps` dictionary to DisplayManager to track when sessions enter WAITING_FOR_USER state, following the same architectural pattern as existing `_previous_activity_session_statuses` for consistent state management.
+- **Incremental Enhancement over Rewrite**: Enhanced existing `_check_activity_session_changes()` and `_check_activity_session_changes_without_audio()` methods rather than creating new notification infrastructure, maintaining backward compatibility and leveraging existing audio signal framework.
+- **Stateful Session Tracking**: Extended the existing session state tracking system to include temporal information, allowing for time-based decision making while preserving the existing session change detection logic.
+
+**Method/Algorithm Choices:**
+- **30-Second Threshold**: Implemented exactly 30-second delay as specified in the requirement ("Odgłos 2 pinięć ma być dopiero jak WAITING_FOR_USER trwa >=30 sekund"), using `timedelta(seconds=30)` for precise timing control.
+- **Timestamp Cleanup Strategy**: Used automatic cleanup of timestamps when sessions change status or disappear, preventing memory leaks and ensuring accurate state tracking across session lifecycle transitions.
+- **Single Audio Signal per Transition**: Maintained existing behavior of playing audio only once per qualifying transition by removing timestamps after audio is played, preventing repeated notifications for the same waiting period.
+
+**Testing Strategy:**
+- **TDD Methodology**: Followed strict RED-GREEN-REFACTOR approach with two comprehensive test cases: `test_waiting_for_user_30_second_audio_delay` for timing verification and `test_waiting_for_user_status_change_clears_timestamp` for cleanup verification.
+- **Manual Timestamp Control**: Used direct timestamp manipulation in tests rather than complex datetime mocking to ensure reliable and deterministic test behavior without time-dependent race conditions.
+- **Comprehensive State Verification**: Tests verify both positive cases (audio plays after 30s) and negative cases (no repeated audio, cleanup on status change) to ensure complete behavioral correctness.
+
+**Library/Dependency Choices:**
+- **Standard Library Only**: No new dependencies added, maintaining the project's philosophy of using only Python standard library. Used existing `datetime` and `timezone` modules for timestamp operations.
+- **Existing Audio Infrastructure**: Leveraged existing `play_audio_signal()` method that handles multiple audio fallback strategies (osascript → afplay → terminal bell) without modification.
+
+**Other Key Decisions:**
+- **Session Key Consistency**: Used the same `f"{project_name}_{session_id}"` session key format as existing status tracking to maintain consistency across the session management system.
+- **UTC Timezone Consistency**: Used UTC timezone for all timestamp operations to match the existing project pattern and avoid timezone-related bugs.
+- **Dual Method Synchronization**: Updated both `_check_activity_session_changes()` and `_check_activity_session_changes_without_audio()` methods with identical logic to maintain consistency between audio and non-audio code paths.
+- **Defensive Programming**: Added existence checks for session keys before accessing timestamps and comprehensive cleanup of orphaned timestamps to prevent edge case errors.
+
+### 3. Process Log
+
+**Actions Taken:**
+1. Analyzed existing audio signal logic in `src/client/display_manager.py` lines 377-430 to understand current immediate-trigger behavior
+2. Added `_waiting_for_user_timestamps` dictionary to DisplayManager `__init__` method for timestamp tracking
+3. Enhanced `_check_activity_session_changes()` method with 30-second delay logic and timestamp management
+4. Updated `_check_activity_session_changes_without_audio()` method with identical logic for consistency
+5. Created comprehensive test suite with `test_waiting_for_user_30_second_audio_delay` and `test_waiting_for_user_status_change_clears_timestamp`
+6. Verified all 271 tests pass including new tests and existing DisplayManager test suite
+
+**Challenges Encountered:**
+- Initial test implementation attempted complex datetime mocking which proved unreliable - resolved by using direct timestamp manipulation for deterministic test behavior
+- Understanding the dual method structure (`_check_activity_session_changes` vs `_check_activity_session_changes_without_audio`) required careful analysis to ensure both methods received identical updates
+- Ensuring proper cleanup of timestamps across all possible session state transitions required comprehensive edge case analysis
+
+**New Dependencies:** 
+None - all changes used existing Python standard library infrastructure including `datetime`, `timezone`, and `timedelta` modules.
+
 ####################### 2025-01-07, 00:00:00
 ## Task: Phase 2 - Session Cleanup Logic Improvements
 **Date:** 2025-01-07

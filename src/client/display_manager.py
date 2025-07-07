@@ -45,6 +45,7 @@ class DisplayManager:
         self._previous_activity_sessions = {}  # Track previous session states for change detection
         self._previous_session_state = None  # Track previous session state (active/waiting)
         self._previous_activity_session_statuses = {}  # Track activity session statuses for audio signals
+        self._waiting_for_user_timestamps = {}  # Track when sessions entered WAITING_FOR_USER state
         
         # Activity session display configuration
         self.activity_config = {
@@ -375,25 +376,53 @@ class DisplayManager:
 
     def _check_activity_session_changes(self, activity_sessions: List[ActivitySessionData]):
         """
-        Check for activity session status changes and play audio signal when transitioning to WAITING_FOR_USER.
+        Check for activity session status changes and play audio signal when WAITING_FOR_USER lasts >=30 seconds.
         
         Args:
             activity_sessions: Current list of activity sessions
         """
+        from datetime import datetime, timezone
+        
         # Track current session statuses
         current_statuses = {}
         for session in activity_sessions:
             session_key = f"{session.project_name}_{session.session_id}"
             current_statuses[session_key] = session.status
         
-        # Check for status changes that should trigger audio signal
+        current_time = datetime.now(timezone.utc)
+        
+        # Check for status changes and track WAITING_FOR_USER timestamps
         for session_key, current_status in current_statuses.items():
             if session_key in self._previous_activity_session_statuses:
                 previous_status = self._previous_activity_session_statuses[session_key]
-                # Play audio signal when transitioning from ACTIVE to WAITING_FOR_USER
+                
+                # Track when session enters WAITING_FOR_USER state
                 if (previous_status == "ACTIVE" and current_status == "WAITING_FOR_USER"):
+                    self._waiting_for_user_timestamps[session_key] = current_time
+                
+                # Remove timestamp if session leaves WAITING_FOR_USER state
+                elif (previous_status == "WAITING_FOR_USER" and current_status != "WAITING_FOR_USER"):
+                    if session_key in self._waiting_for_user_timestamps:
+                        del self._waiting_for_user_timestamps[session_key]
+        
+        # Check for WAITING_FOR_USER sessions that have lasted >=30 seconds
+        for session_key, current_status in current_statuses.items():
+            if (current_status == "WAITING_FOR_USER" and 
+                session_key in self._waiting_for_user_timestamps):
+                
+                wait_duration = current_time - self._waiting_for_user_timestamps[session_key]
+                if wait_duration.total_seconds() >= 30:
                     self.play_audio_signal()
+                    # Remove timestamp to prevent repeated audio signals
+                    del self._waiting_for_user_timestamps[session_key]
                     break  # Only play once per update cycle
+        
+        # Clean up timestamps for sessions that no longer exist
+        existing_sessions = set(current_statuses.keys())
+        timestamps_to_remove = [key for key in self._waiting_for_user_timestamps.keys() 
+                               if key not in existing_sessions]
+        for key in timestamps_to_remove:
+            del self._waiting_for_user_timestamps[key]
         
         # Update previous statuses
         self._previous_activity_session_statuses = current_statuses.copy()
@@ -406,23 +435,51 @@ class DisplayManager:
             activity_sessions: Current list of activity sessions
             
         Returns:
-            bool: True if there's a status change that should trigger audio, False otherwise
+            bool: True if there's a status change that should trigger audio (WAITING_FOR_USER >=30s), False otherwise
         """
+        from datetime import datetime, timezone
+        
         # Track current session statuses
         current_statuses = {}
         for session in activity_sessions:
             session_key = f"{session.project_name}_{session.session_id}"
             current_statuses[session_key] = session.status
         
-        # Check for status changes that should trigger audio signal
-        audio_signal_needed = False
+        current_time = datetime.now(timezone.utc)
+        
+        # Check for status changes and track WAITING_FOR_USER timestamps
         for session_key, current_status in current_statuses.items():
             if session_key in self._previous_activity_session_statuses:
                 previous_status = self._previous_activity_session_statuses[session_key]
-                # Check for transition from ACTIVE to WAITING_FOR_USER
+                
+                # Track when session enters WAITING_FOR_USER state
                 if (previous_status == "ACTIVE" and current_status == "WAITING_FOR_USER"):
+                    self._waiting_for_user_timestamps[session_key] = current_time
+                
+                # Remove timestamp if session leaves WAITING_FOR_USER state
+                elif (previous_status == "WAITING_FOR_USER" and current_status != "WAITING_FOR_USER"):
+                    if session_key in self._waiting_for_user_timestamps:
+                        del self._waiting_for_user_timestamps[session_key]
+        
+        # Check for WAITING_FOR_USER sessions that have lasted >=30 seconds
+        audio_signal_needed = False
+        for session_key, current_status in current_statuses.items():
+            if (current_status == "WAITING_FOR_USER" and 
+                session_key in self._waiting_for_user_timestamps):
+                
+                wait_duration = current_time - self._waiting_for_user_timestamps[session_key]
+                if wait_duration.total_seconds() >= 30:
                     audio_signal_needed = True
+                    # Remove timestamp to prevent repeated audio signals
+                    del self._waiting_for_user_timestamps[session_key]
                     break  # Only need to detect once per update cycle
+        
+        # Clean up timestamps for sessions that no longer exist
+        existing_sessions = set(current_statuses.keys())
+        timestamps_to_remove = [key for key in self._waiting_for_user_timestamps.keys() 
+                               if key not in existing_sessions]
+        for key in timestamps_to_remove:
+            del self._waiting_for_user_timestamps[key]
         
         # Update previous statuses
         self._previous_activity_session_statuses = current_statuses.copy()
