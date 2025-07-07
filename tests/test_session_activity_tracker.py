@@ -144,18 +144,18 @@ class TestSessionActivityTracker(unittest.TestCase):
         mock_parser.parse_log_file.assert_called_once_with("/fake/log/file.log")
     
     def test_merge_sessions_consolidates_session_events(self):
-        """Test _merge_sessions consolidates multiple events for same session."""
-        # Create multiple events for the same session
+        """Test _merge_sessions consolidates multiple events and calculates smart status."""
+        # Create multiple events for the same session - recent stop should be WAITING_FOR_USER
         notification_event = ActivitySessionData(
             session_id="session_123",
-            start_time=datetime.now(timezone.utc) - timedelta(minutes=30),
+            start_time=datetime.now(timezone.utc) - timedelta(minutes=2),
             status=ActivitySessionStatus.ACTIVE.value,
             event_type="notification"
         )
         
         stop_event = ActivitySessionData(
-            session_id="session_123",
-            start_time=datetime.now(timezone.utc) - timedelta(minutes=30),
+            session_id="session_123", 
+            start_time=datetime.now(timezone.utc) - timedelta(seconds=30),  # 30 seconds ago = recent
             end_time=datetime.now(timezone.utc),
             status=ActivitySessionStatus.STOPPED.value,
             event_type="stop"
@@ -165,10 +165,22 @@ class TestSessionActivityTracker(unittest.TestCase):
         
         merged_sessions = self.tracker._merge_sessions(sessions)
         
-        # Should consolidate to one session with stop status
+        # Should consolidate to one session with smart status detection
         self.assertEqual(len(merged_sessions), 1)
         self.assertEqual(merged_sessions[0].session_id, "session_123")
-        self.assertEqual(merged_sessions[0].status, ActivitySessionStatus.STOPPED.value)
+        # Recent stop (30s ago) should be WAITING_FOR_USER according to smart logic
+        self.assertEqual(merged_sessions[0].status, ActivitySessionStatus.WAITING_FOR_USER.value)
+        
+        # Test old stop becomes INACTIVE
+        old_stop_event = ActivitySessionData(
+            session_id="session_456",
+            start_time=datetime.now(timezone.utc) - timedelta(hours=1),  # 1 hour ago = inactive
+            status=ActivitySessionStatus.STOPPED.value,
+            event_type="stop"
+        )
+        
+        old_merged = self.tracker._merge_sessions([old_stop_event])
+        self.assertEqual(old_merged[0].status, ActivitySessionStatus.INACTIVE.value)
     
     def test_is_cache_valid_checks_file_modification_times(self):
         """Test _is_cache_valid checks if cache is still valid based on file modification."""

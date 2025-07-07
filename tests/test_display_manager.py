@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
 from src.client.display_manager import DisplayManager
-from src.shared.data_models import MonitoringData, SessionData
+from src.shared.data_models import MonitoringData, SessionData, ActivitySessionData
 
 
 class TestDisplayManager(unittest.TestCase):
@@ -58,6 +58,33 @@ class TestDisplayManager(unittest.TestCase):
             last_update=datetime.now(timezone.utc),
             billing_period_start=datetime.now(timezone.utc) - timedelta(days=15),
             billing_period_end=datetime.now(timezone.utc) + timedelta(days=15)
+        )
+        
+        # Create monitoring data with activity sessions
+        self.activity_sessions_sample = [
+            ActivitySessionData(
+                session_id="test-activity-1",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
+                status="ACTIVE",
+                event_type="notification"
+            ),
+            ActivitySessionData(
+                session_id="test-activity-2",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=10),
+                status="WAITING_FOR_USER",
+                event_type="stop"
+            )
+        ]
+        
+        self.monitoring_data_with_activity = MonitoringData(
+            current_sessions=[self.active_session],
+            total_sessions_this_month=1,
+            total_cost_this_month=5.25,
+            max_tokens_per_session=5000,
+            last_update=datetime.now(timezone.utc),
+            billing_period_start=datetime.now(timezone.utc) - timedelta(days=15),
+            billing_period_end=datetime.now(timezone.utc) + timedelta(days=15),
+            activity_sessions=self.activity_sessions_sample
         )
         
         self.display_manager = DisplayManager()
@@ -214,6 +241,398 @@ class TestDisplayManager(unittest.TestCase):
             self.assertIn("$125.75", output)
             self.assertIn("Ctrl+C exit", output)
             self.assertIn("Server:", output)
+
+    def test_render_activity_sessions_with_icons(self):
+        """Test rendering activity sessions with status icons (RED test)."""
+        # Create sample activity sessions with different statuses
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="active-session-1",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
+                status="ACTIVE",
+                event_type="notification"
+            ),
+            ActivitySessionData(
+                session_id="waiting-session-2",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=1),
+                status="WAITING_FOR_USER",
+                event_type="stop"
+            ),
+            ActivitySessionData(
+                session_id="idle-session-3",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=15),
+                status="IDLE",
+                event_type="stop"
+            ),
+            ActivitySessionData(
+                session_id="inactive-session-4",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=45),
+                status="INACTIVE",
+                event_type="stop"
+            )
+        ]
+        
+        # Test rendering with icons for each status
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for activity sessions section header
+            self.assertIn("CLAUDE CODE ACTIVITY", output)
+            
+            # Check for status icons and session IDs
+            self.assertIn("🔵", output)  # ACTIVE icon
+            self.assertIn("⏳", output)  # WAITING_FOR_USER icon
+            self.assertIn("💤", output)  # IDLE icon
+            self.assertIn("⚫", output)  # INACTIVE icon
+            
+            # Check for session identifiers (truncated for display)
+            self.assertIn("active-sessi", output)
+            self.assertIn("waiting-sess", output)
+            self.assertIn("idle-session", output)
+            self.assertIn("inactive-ses", output)
+
+    def test_render_activity_sessions_empty_list(self):
+        """Test rendering activity sessions with empty list."""
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions([])
+            output = fake_out.getvalue()
+            
+            # Should show a message about no activity sessions
+            self.assertIn("No activity sessions", output)
+
+    def test_render_activity_sessions_single_active(self):
+        """Test rendering with only one active session."""
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="single-active",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=2),
+                status="ACTIVE",
+                event_type="notification"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for header and single session
+            self.assertIn("CLAUDE CODE ACTIVITY", output)
+            self.assertIn("🔵", output)  # ACTIVE icon
+            self.assertIn("single-activ", output)  # Truncated ID
+            self.assertIn("ACTIVE", output)
+
+    def test_render_activity_sessions_configuration_usage(self):
+        """Test that activity sessions use configuration properly."""
+        # Modify configuration for testing
+        original_config = self.display_manager.activity_config.copy()
+        self.display_manager.activity_config["status_icons"]["ACTIVE"] = "🟢"
+        self.display_manager.activity_config["max_session_id_length"] = 5
+        self.display_manager.activity_config["show_timestamps"] = False
+        
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="very-long-session-id",
+                start_time=datetime.now(timezone.utc),
+                status="ACTIVE",
+                event_type="notification"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for modified icon
+            self.assertIn("🟢", output)  # Custom ACTIVE icon
+            
+            # Check for session ID truncation at 5 chars
+            self.assertIn("very-...", output)
+            
+            # Check that timestamp is not shown
+            timestamp_pattern = r'\(\d{2}:\d{2}:\d{2}\)'
+            import re
+            self.assertIsNone(re.search(timestamp_pattern, output))
+        
+        # Restore original configuration
+        self.display_manager.activity_config = original_config
+
+    def test_render_activity_sessions_mixed_statuses(self):
+        """Test rendering with mixed session statuses."""
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="session-1",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=1),
+                status="ACTIVE",
+                event_type="notification"
+            ),
+            ActivitySessionData(
+                session_id="session-2", 
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
+                status="WAITING_FOR_USER",
+                event_type="stop"
+            ),
+            ActivitySessionData(
+                session_id="session-3",
+                start_time=datetime.now(timezone.utc) - timedelta(hours=1),
+                status="INACTIVE",
+                event_type="stop"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for header
+            self.assertIn("CLAUDE CODE ACTIVITY", output)
+            
+            # Check for different icons
+            self.assertIn("🔵", output)  # ACTIVE
+            self.assertIn("⏳", output)  # WAITING_FOR_USER
+            self.assertIn("⚫", output)  # INACTIVE
+            
+            # Check for all session IDs
+            self.assertIn("session-1", output)
+            self.assertIn("session-2", output)
+            self.assertIn("session-3", output)
+
+    def test_render_activity_sessions_unknown_status(self):
+        """Test rendering with unknown status gets fallback icon."""
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="unknown-status",
+                start_time=datetime.now(timezone.utc),
+                status="UNKNOWN_STATUS",
+                event_type="unknown"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for fallback icon
+            self.assertIn("❓", output)
+            self.assertIn("UNKNOWN_STATUS", output)
+
+    def test_render_full_display_includes_activity_sessions(self):
+        """Test that main display includes activity sessions section (RED test)."""
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager.render_full_display(self.monitoring_data_with_activity)
+            output = fake_out.getvalue()
+            
+            # Check for main header
+            self.assertIn("CLAUDE SESSION MONITOR", output)
+            
+            # Check for activity sessions section
+            self.assertIn("CLAUDE CODE ACTIVITY", output)
+            
+            # Check for activity session data
+            self.assertIn("🔵", output)  # ACTIVE icon
+            self.assertIn("⏳", output)  # WAITING_FOR_USER icon
+            self.assertIn("test-activit", output)  # Session IDs (truncated)
+            
+            # Check for traditional session data
+            self.assertIn("Token Usage:", output)
+            self.assertIn("Time to Reset:", output)
+
+    def test_render_full_display_without_activity_sessions(self):
+        """Test that main display works when no activity sessions (RED test)."""
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager.render_full_display(self.monitoring_data_active)
+            output = fake_out.getvalue()
+            
+            # Check for main header
+            self.assertIn("CLAUDE SESSION MONITOR", output)
+            
+            # Should show "No activity sessions" message
+            self.assertIn("No activity sessions", output)
+            
+            # Check for traditional session data
+            self.assertIn("Token Usage:", output)
+            self.assertIn("Time to Reset:", output)
+
+    def test_render_full_display_activity_sessions_none(self):
+        """Test that main display handles None activity_sessions gracefully (RED test)."""
+        # Ensure activity_sessions is None (default)
+        self.monitoring_data_active.activity_sessions = None
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager.render_full_display(self.monitoring_data_active)
+            output = fake_out.getvalue()
+            
+            # Check for main header
+            self.assertIn("CLAUDE SESSION MONITOR", output)
+            
+            # Should show "No activity sessions" message
+            self.assertIn("No activity sessions", output)
+
+    def test_render_activity_sessions_disabled(self):
+        """Test that activity sessions can be disabled via configuration."""
+        # Disable activity sessions
+        self.display_manager.activity_config["enabled"] = False
+        
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="test-session",
+                start_time=datetime.now(timezone.utc),
+                status="ACTIVE",
+                event_type="notification"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Should not display anything when disabled
+            self.assertEqual(output, "")
+
+    def test_render_activity_sessions_minimal_verbosity(self):
+        """Test minimal verbosity display mode."""
+        # Set minimal verbosity
+        self.display_manager.activity_config["verbosity"] = "minimal"
+        
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="session-1",
+                start_time=datetime.now(timezone.utc),
+                status="ACTIVE",
+                event_type="notification"
+            ),
+            ActivitySessionData(
+                session_id="session-2",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=5),
+                status="WAITING_FOR_USER",
+                event_type="stop"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for compact header
+            self.assertIn("Activity: 2 sessions", output)
+            
+            # Check for compact status display  
+            self.assertIn("🔵", output)
+            self.assertIn("ACTIVE", output)
+            self.assertIn("⏳", output)
+            self.assertIn("WAITING_FOR_USER", output)
+            
+            # Should not have full header in minimal mode
+            self.assertNotIn("CLAUDE CODE ACTIVITY", output)
+
+    def test_render_activity_sessions_verbose_mode(self):
+        """Test verbose display mode with detailed information."""
+        # Set verbose mode
+        self.display_manager.activity_config["verbosity"] = "verbose"
+        
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="verbose-session",
+                start_time=datetime.now(timezone.utc),
+                status="ACTIVE",
+                event_type="notification",
+                metadata={"tool": "test", "user": "claude"}
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Check for verbose elements
+            self.assertIn("CLAUDE CODE ACTIVITY", output)
+            self.assertIn("Status:", output)
+            self.assertIn("ACTIVE", output)
+            self.assertIn("[notification]", output)
+            self.assertIn("Metadata: tool=test, user=claude", output)
+
+    def test_render_activity_sessions_filter_inactive(self):
+        """Test filtering out inactive sessions."""
+        # Configure to hide inactive sessions
+        self.display_manager.activity_config["show_inactive_sessions"] = False
+        
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="active-session",
+                start_time=datetime.now(timezone.utc),
+                status="ACTIVE",
+                event_type="notification"
+            ),
+            ActivitySessionData(
+                session_id="inactive-session",
+                start_time=datetime.now(timezone.utc) - timedelta(hours=2),
+                status="INACTIVE",
+                event_type="stop"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Should show active but not inactive
+            self.assertIn("active-sessi", output)  # Truncated ID
+            self.assertNotIn("inactive-ses", output)  # Should not appear
+            self.assertIn("🔵", output)  # ACTIVE icon
+            self.assertNotIn("⚫", output)  # INACTIVE icon
+
+    def test_render_activity_sessions_max_limit(self):
+        """Test limiting the number of displayed sessions."""
+        # Set low limit
+        self.display_manager.activity_config["max_sessions_displayed"] = 2
+        
+        # Create 4 sessions
+        activity_sessions = [
+            ActivitySessionData(
+                session_id=f"session-{i}",
+                start_time=datetime.now(timezone.utc) - timedelta(minutes=i),
+                status="ACTIVE",
+                event_type="notification"
+            )
+            for i in range(4)
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Should only show 2 most recent sessions (0 and 1)
+            self.assertIn("session-0", output)
+            self.assertIn("session-1", output)
+            self.assertNotIn("session-2", output)
+            self.assertNotIn("session-3", output)
+
+    def test_render_activity_sessions_no_timestamps(self):
+        """Test disabling timestamps in display."""
+        # Disable timestamps
+        self.display_manager.activity_config["show_timestamps"] = False
+        
+        activity_sessions = [
+            ActivitySessionData(
+                session_id="no-timestamp",
+                start_time=datetime.now(timezone.utc),
+                status="ACTIVE",
+                event_type="notification"
+            )
+        ]
+        
+        with patch('sys.stdout', new=io.StringIO()) as fake_out:
+            self.display_manager._render_activity_sessions(activity_sessions)
+            output = fake_out.getvalue()
+            
+            # Should not contain timestamp pattern
+            timestamp_pattern = r'\(\d{2}:\d{2}:\d{2}\)'
+            import re
+            self.assertIsNone(re.search(timestamp_pattern, output))
+            
+            # But should still show session
+            self.assertIn("no-timestamp", output)
+            self.assertIn("ACTIVE", output)
 
 
 if __name__ == '__main__':

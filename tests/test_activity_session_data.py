@@ -83,7 +83,9 @@ class TestActivitySessionData(unittest.TestCase):
         
         # Test enum values
         self.assertEqual(ActivitySessionStatus.ACTIVE.value, "ACTIVE")
-        self.assertEqual(ActivitySessionStatus.WAITING.value, "WAITING")
+        self.assertEqual(ActivitySessionStatus.WAITING_FOR_USER.value, "WAITING_FOR_USER")
+        self.assertEqual(ActivitySessionStatus.IDLE.value, "IDLE")
+        self.assertEqual(ActivitySessionStatus.INACTIVE.value, "INACTIVE")
         self.assertEqual(ActivitySessionStatus.STOPPED.value, "STOPPED")
         
         # Test valid session with enum
