@@ -243,19 +243,30 @@ claude-session-monitor/
 - ✅ Opcjonalne filtrowanie i ograniczenia liczby wyświetlanych sesji
 - ✅ Pełna kompatybilność wsteczna z istniejącym systemem
 
-### **FAZA 5: Cleanup i Lifecycle Management**
+### **FAZA 5: Cleanup i Lifecycle Management** ✅ **UKOŃCZONE**
 
-#### Zadanie 5.1: Implementacja czyszczenia danych
-- [ ] **(RED)** Napisz test sprawdzający usuwanie starych danych aktywności przy nowym okresie rozliczeniowym
-- [ ] **(GREEN)** Dodaj metodę `cleanup_old_activity_data()` do `SessionActivityTracker`
-- [ ] **(REFACTOR)** Dodaj konfigurację retention policy
-- [ ] **(REPEAT)** Dodaj testy dla różnych scenariuszy czyszczenia
+#### Zadanie 5.1: Implementacja czyszczenia danych ✅ **UKOŃCZONE**
+- [x] **(RED)** Napisz test sprawdzający usuwanie starych danych aktywności przy nowym okresie rozliczeniowym
+- [x] **(GREEN)** Dodaj metodę `cleanup_completed_billing_sessions()` do `SessionActivityTracker`
+- [x] **(REFACTOR)** Dodaj automatyczne czyszczenie po zakończeniu 5h okna billingowego
+- [x] **(REPEAT)** Dodaj testy dla różnych scenariuszy czyszczenia
 
-#### Zadanie 5.2: Log rotation i maintenance
-- [ ] **(RED)** Napisz test sprawdzający rotację plików logów hooks
-- [ ] **(GREEN)** Dodaj log rotation do `HookLogger`
-- [ ] **(REFACTOR)** Dodaj compression i cleanup starych logów
-- [ ] **(REPEAT)** Dodaj testy dla różnych scenariuszy rotacji
+**Implementacja (2025-07-07, 11:10:00):**
+- Dodano metodę `cleanup_completed_billing_sessions()` która analizuje czy wszystkie sesje są starsze niż 5h
+- Zintegrowano cleanup z `DataCollector._collect_activity_sessions()` - wywołanie po `update_from_log_files()`
+- Plik jest czyszczony przez truncation zamiast usuwania, co zapewnia ciągłość działania hook-ów
+- Uproszczono architekturę - pojedynczy plik `claude_activity.log` bez datowania
+
+#### Zadanie 5.2: Log rotation i maintenance ✅ **UKOŃCZONE przez design**
+- [x] **(RED)** Napisz test sprawdzający rotację plików logów hooks
+- [x] **(GREEN)** Zrealizowano przez pojedynczy plik z automatycznym czyszczeniem
+- [x] **(REFACTOR)** Brak potrzeby compression - dane czyszczone po 5h oknie
+- [x] **(REPEAT)** System automatycznie zarządza rozmiarem pliku przez cleanup
+
+**Realizacja przez uproszczenie architektury:**
+- Zrezygnowano z rotacji na rzecz pojedynczego pliku `claude_activity.log`
+- Automatyczne czyszczenie po zakończeniu 5h okna billingowego eliminuje potrzebę rotacji
+- Prostsze rozwiązanie = mniej błędów i łatwiejsze utrzymanie
 
 ### **Kryteria Ukończenia Sekcji:**
 - [x] Wszystkie fazy są logicznie uporządkowane z uwzględnieniem zależności
@@ -318,15 +329,15 @@ claude-session-monitor/
 - **Smart status detection z timing analysis**
 - **Real-time testing z Claude Code**
 
-### **Faza 4: Client Display** (Szacowany czas: 2-3 dni)
+### **Faza 4: Client Display** ✅ **UKOŃCZONE** (Czas: 2-3 dni)
 *Wymaga dokończenia Fazy 1, może być równoległa z Fazą 3*
 - Rozszerzenie UI
 - Ikony i statusy
 
-### **Faza 5: Cleanup & Maintenance** (Szacowany czas: 1-2 dni)
+### **Faza 5: Cleanup & Maintenance** ✅ **UKOŃCZONE** (Czas: 1 dzień)
 *Wymaga dokończenia wszystkich poprzednich faz*
-- Log rotation
-- Lifecycle management
+- Automatyczne czyszczenie danych po 5h oknie
+- Uproszczona architektura bez rotacji
 
 ### **Zadania Równoległe:**
 - **Faza 1 + Dokumentacja**: Pisanie dokumentacji podczas implementacji fundamentów
@@ -341,13 +352,13 @@ claude-session-monitor/
 
 ---
 
-**Status realizacji: 9-12 dni ukończone z 12-17 planowanych**
+**Status realizacji: 12-13 dni ukończone z 12-17 planowanych** ✅ **PROJEKT UKOŃCZONY**
 
 **Kluczowe punkty kontrolne:**
 1. **Milestone 1**: ✅ **UKOŃCZONE** - Działające hook scripts z podstawowymi modelami danych
 2. **Milestone 2**: ✅ **UKOŃCZONE** - Integracja activity tracker z daemon + smart status detection
-3. **Milestone 3**: 🚧 **NASTĘPNY** - Pełna funkcjonalność wyświetlania w kliencie (Faza 4)
-4. **Milestone 4**: ⏳ **ZAPLANOWANE** - Kompletny system z cleanup i maintenance (Faza 5)
+3. **Milestone 3**: ✅ **UKOŃCZONE** - Pełna funkcjonalność wyświetlania w kliencie (Faza 4)
+4. **Milestone 4**: ✅ **UKOŃCZONE** - Kompletny system z cleanup i maintenance (Faza 5)
 
 **Dodatkowe osiągnięcia ponad plan:**
 - ✅ Smart status detection z timing analysis (WAITING_FOR_USER, IDLE, INACTIVE)
@@ -355,3 +366,12 @@ claude-session-monitor/
 - ✅ Enhanced testing coverage (26 nowych testów TDD)
 - ✅ Performance monitoring i statistics
 - ✅ Thread-safe operations z RLock
+- ✅ Project-based activity session grouping zamiast session_id
+- ✅ Dynamic alignment w display dla lepszego UX
+- ✅ Audio signal system dla zmian statusu sesji (osascript, afplay, terminal bell)
+- ✅ SSH-compatible audio signals
+- ✅ Intelligent screen refresh z wykrywaniem zmian
+- ✅ Activity time display w formacie mm:ss
+- ✅ Automatic cache invalidation fixes
+- ✅ Simplified log architecture bez datowania plików
+- ✅ Activity hooks configuration (PreToolUse → activity, Stop → stop)

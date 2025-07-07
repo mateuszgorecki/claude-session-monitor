@@ -69,20 +69,22 @@ class DisplayManager:
         }
 
     def play_audio_signal(self):
-        """Play a short audio signal using system beep."""
+        """Play a short audio signal using system beep - two quick beeps."""
         try:
             # Use osascript for better SSH compatibility (plays on host)
-            subprocess.run(['osascript', '-e', 'beep 1'], 
+            subprocess.run(['osascript', '-e', 'beep 2'], 
                           check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
-            # Fallback to afplay for local sessions
+            # Fallback to afplay for local sessions - play twice quickly
             try:
                 subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
                               check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
+                              check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception:
-                # Final fallback to terminal bell
+                # Final fallback to terminal bell - two quick beeps
                 try:
-                    print('\a', end='', flush=True)
+                    print('\a\a', end='', flush=True)
                 except Exception:
                     pass  # Ignore if audio signal fails
 

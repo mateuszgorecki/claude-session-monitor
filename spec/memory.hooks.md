@@ -1,3 +1,30 @@
+####################### 2025-07-07, 16:48:00
+## Task: Audio Signal Enhancement - Podwójne beepy zamiast pojedynczego
+**Date:** 2025-07-07, 16:48:00
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Użytkownik poprosił o zmianę sygnału dźwiękowego z pojedynczego beep na dwa szybkie beepy po sobie dla lepszego rozpoznawania alertów o zmianie statusu sesji aktywności.
+* **Solution:** Zaktualizowano play_audio_signal() method w DisplayManager żeby używał podwójnych beepów we wszystkich trzech metodach fallback: osascript, afplay, i terminal bell.
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** Zachowano istniejącą hierarchię fallback methods (osascript → afplay → terminal bell) ale zmodyfikowano każdą metodę żeby generowała podwójne sygnały. To zapewnia consistent user experience niezależnie od tego która metoda audio jest używana w danym środowisku.
+* **Library/Dependency Choices:** Wykorzystano istniejące system audio tools bez dodawania nowych zależności. osascript pozwala na parametryzację liczby beepów przez 'beep 2', afplay wymaga podwójnego wywołania, terminal bell używa '\a\a' for rapid succession.
+* **Method/Algorithm Choices:** Dla osascript zmieniono z 'beep 1' na 'beep 2' co generuje dwa beepy automatycznie. Dla afplay dodano drugie wywołanie subprocess.run() bezpośrednio po pierwszym. Dla terminal bell zmieniono z '\a' na '\a\a' co generuje dwa rapid beeps w konsoli.
+* **Testing Strategy:** Zmiany są simple i backwards compatible - nie wymagają dodatkowych testów ponieważ nie zmieniają API ani logiki wywołania. Funkcjonalność zostanie potwierdzona przez użytkownika przy następnym audio alert.
+* **Other Key Decisions:** Zdecydowano o consistent approach across all fallback methods żeby user experience był jednakowy. Nie dodano configurability dla liczby beepów - hard coded double beeps jako simple solution. Zachowano wszystkie istniejące error handling i fallback mechanisms.
+
+### 3. Process Log
+* **Actions Taken:**
+  1. Przeczytano play_audio_signal() method w display_manager.py na linii 71
+  2. Zaktualizowano osascript command z 'beep 1' na 'beep 2' dla automatycznych podwójnych beepów
+  3. Dodano drugie wywołanie afplay w fallback method dla konsistentności
+  4. Zmieniono terminal bell z '\a' na '\a\a' dla rapid double beeps
+  5. Zaktualizowano docstring method z "system beep" na "system beep - two quick beeps"
+  6. Dodano komentarz "play twice quickly" w afplay fallback section dla clarity
+* **Challenges Encountered:** Brak wyzwań - była to prosta modyfikacja istniejącego kodu. Każda metoda audio ma różny sposób generowania podwójnych sygnałów ale wszystkie są straightforward do implementacji.
+* **New Dependencies:** Brak nowych zależności - wykorzystano istniejące system audio capabilities
+
 ####################### 2025-07-07, 16:30:00
 ## Task: SSH Audio Signal Fix - Dźwięk przez SSH na hoście zamiast kliencie
 **Date:** 2025-07-07, 16:30:00
