@@ -16,6 +16,7 @@ from pathlib import Path
 from daemon.hook_log_parser import HookLogParser
 from shared.data_models import ActivitySessionData, ActivitySessionStatus
 from shared.constants import HOOK_LOG_DIR, HOOK_LOG_FILE_PATTERN, HOOK_LOG_RETENTION_DAYS
+from shared.hook_log_compressor import HookLogCompressor
 
 
 class SessionActivityTracker:
@@ -34,6 +35,7 @@ class SessionActivityTracker:
         """
         self.logger = logging.getLogger(__name__)
         self.parser = HookLogParser()
+        self.compressor = HookLogCompressor()
         self._active_sessions: List[ActivitySessionData] = []
         self._last_cache_update: Optional[datetime] = None
         self._file_modification_times: Dict[str, float] = {}
@@ -99,6 +101,9 @@ class SessionActivityTracker:
                         
                         self._stats['total_files_processed'] += processed_count
                         self._stats['total_sessions_parsed'] += len(all_sessions)
+                        
+                        # Check if hook log file needs compression
+                        self._maybe_compress_hook_log()
                     
                     self.logger.debug(f"Updated {len(self._active_sessions)} sessions from {processed_count} new log files")
             else:
@@ -242,6 +247,9 @@ class SessionActivityTracker:
                     'events': [{'type': e.event_type, 'time': e.start_time.isoformat()} for e in sorted_events]
                 }
             )
+            
+            # Compress events to reduce file size
+            merged_session.compress_events()
             
             merged_sessions.append(merged_session)
         
@@ -441,6 +449,65 @@ class SessionActivityTracker:
                             
                     except Exception as e:
                         self.logger.error(f"Failed to clear activity log file: {e}")
+    
+    def _maybe_compress_hook_log(self) -> None:
+        """Check if hook log file needs compression and compress if necessary."""
+        try:
+            if self.compressor.should_compress():
+                success = self.compressor.compress_log_file()
+                if success:
+                    self.logger.debug("Successfully compressed hook log file")
+                    # Invalidate cache after compression to re-read compressed file
+                    self._file_modification_times.clear()
+                    self._last_cache_update = None
+                else:
+                    self.logger.warning("Failed to compress hook log file")
+        except Exception as e:
+            self.logger.error(f"Error during hook log compression check: {e}")
+    
+    def get_hook_log_stats(self) -> Dict[str, Any]:
+        """Get statistics about the hook log file.
+        
+        Returns:
+            Dictionary containing hook log statistics
+        """
+        try:
+            return self.compressor.get_compression_stats()
+        except Exception as e:
+            self.logger.error(f"Error getting hook log stats: {e}")
+            return {
+                'file_exists': False,
+                'entry_count': 0,
+                'file_size_bytes': 0,
+                'should_compress': False,
+                'error': str(e)
+            }
+    
+    def force_compress_hook_log(self, target_entries: Optional[int] = None) -> bool:
+        """Force compression of hook log file.
+        
+        Args:
+            target_entries: Target number of entries to keep (default from constants)
+            
+        Returns:
+            True if compression was successful, False otherwise
+        """
+        try:
+            if target_entries is None:
+                success = self.compressor.compress_log_file()
+            else:
+                success = self.compressor.force_compress_to_size(target_entries)
+            
+            if success:
+                # Invalidate cache after compression to re-read compressed file
+                self._file_modification_times.clear()
+                self._last_cache_update = None
+                self.logger.info("Successfully force compressed hook log file")
+            
+            return success
+        except Exception as e:
+            self.logger.error(f"Error during force compression: {e}")
+            return False
     
     def __del__(self):
         """Cleanup when tracker is destroyed."""
