@@ -7,10 +7,8 @@ from typing import Optional, Dict, Any, List
 
 try:
     from ..shared.data_models import MonitoringData, SessionData, ActivitySessionData
-    from ..shared.utils import get_work_timing_suggestion
 except ImportError:
     from shared.data_models import MonitoringData, SessionData, ActivitySessionData
-    from shared.utils import get_work_timing_suggestion
 
 
 class Colors:
@@ -46,6 +44,9 @@ class DisplayManager:
         self._previous_session_state = None  # Track previous session state (active/waiting)
         self._previous_activity_session_statuses = {}  # Track activity session statuses for audio signals
         self._waiting_for_user_timestamps = {}  # Track when sessions entered WAITING_FOR_USER state
+        self._long_active_timestamps = {}  # Track when sessions entered ACTIVE state
+        self._long_active_alerted = set()  # Track which sessions already got long active alert
+        self._timing_suggestion_cache = {}  # Cache for stable timing suggestions
         
         # Activity session display configuration
         self.activity_config = {
@@ -71,13 +72,66 @@ class DisplayManager:
             "verbosity": "normal"  # "minimal", "normal", "verbose"
         }
 
+    def get_stable_timing_suggestion(self, current_time: datetime) -> tuple[str, str, str]:
+        """
+        Get a stable timing suggestion that doesn't change every refresh.
+        
+        Args:
+            current_time: Current datetime
+            
+        Returns:
+            Tuple of (icon, message, color) for stable display
+        """
+        # Use current hour+minute as cache key to ensure stability within the same minute
+        cache_key = (current_time.hour, current_time.minute)
+        
+        if cache_key in self._timing_suggestion_cache:
+            return self._timing_suggestion_cache[cache_key]
+        
+        current_minute = current_time.minute
+        
+        # Define timing categories with icons and messages
+        if current_minute <= 15:
+            # Green - optimal timing
+            icon = "🟢"
+            message = "Idealny czas na rozpoczęcie pracy!"
+            color = Colors.GREEN
+        elif current_minute <= 30:
+            # Yellow - moderate timing
+            icon = "🟡"
+            message = "Można zaczynać, timing akceptowalny"
+            color = Colors.WARNING
+        elif current_minute <= 45:
+            # Orange - skeptical timing
+            icon = "🟠"
+            message = "Timing mógłby być lepszy, ale OK"
+            color = Colors.WARNING
+        else:
+            # Red - critical timing
+            icon = "🔴"
+            message = "Najgorszy możliwy moment na start"
+            color = Colors.FAIL
+        
+        # Cache the result
+        result = (icon, message, color)
+        self._timing_suggestion_cache[cache_key] = result
+        
+        # Clean old cache entries (keep only last 5 entries)
+        if len(self._timing_suggestion_cache) > 5:
+            # Remove oldest entries
+            sorted_keys = sorted(self._timing_suggestion_cache.keys())
+            for old_key in sorted_keys[:-5]:
+                del self._timing_suggestion_cache[old_key]
+        
+        return result
+
     def play_audio_signal(self):
         """Play a short audio signal using system beep - two quick beeps."""
         try:
             # Use osascript for better SSH compatibility (plays on host)
             subprocess.run(['osascript', '-e', 'beep 2'], 
                           check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
+        except Exception as e:
             # Fallback to afplay for local sessions - play twice quickly
             try:
                 subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
@@ -88,6 +142,28 @@ class DisplayManager:
                 # Final fallback to terminal bell - two quick beeps
                 try:
                     print('\a\a', end='', flush=True)
+                except Exception:
+                    pass  # Ignore if audio signal fails
+
+    def play_long_active_alert(self):
+        """Play a longer alert signal for long ACTIVE sessions - three quick beeps."""
+        try:
+            # Use osascript for better SSH compatibility (plays on host)
+            subprocess.run(['osascript', '-e', 'beep 3'], 
+                          check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            # Fallback to afplay for local sessions - play three times quickly
+            try:
+                subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
+                              check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
+                              check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['afplay', '/System/Library/Sounds/Tink.aiff'], 
+                              check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                # Final fallback to terminal bell - three quick beeps
+                try:
+                    print('\a\a\a', end='', flush=True)
                 except Exception:
                     pass  # Ignore if audio signal fails
 
@@ -255,21 +331,13 @@ class DisplayManager:
         period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
         print(f"Current subscription period started: {period_start}")
         
-        # Show timing suggestion
-        timing_suggestion = get_work_timing_suggestion()
-        current_minute = datetime.now().minute
+        # Get stable timing suggestion with icon and colored time
+        current_time = datetime.now()
+        icon, message, color = self.get_stable_timing_suggestion(current_time)
         
-        # Color coding based on time range
-        if current_minute <= 15:
-            color = Colors.GREEN  # Positive - green
-        elif current_minute <= 30:
-            color = Colors.CYAN   # Moderate - cyan
-        elif current_minute <= 45:
-            color = Colors.WARNING  # Skeptical - yellow
-        else:
-            color = Colors.FAIL   # Critical - red
-            
-        print(f"\n{color}Timing suggestion: {timing_suggestion}{Colors.ENDC}\n")
+        # Display timing suggestion with icon and colored time
+        colored_time = f"{color}{current_time.strftime('%H:%M')}{Colors.ENDC}"
+        print(f"\n{icon} {color}{message}{Colors.ENDC} ({colored_time})\n")
 
     def render_footer(self, current_time: datetime, session_stats: Dict[str, Any],
                      days_remaining: int, total_cost: float, daemon_version: Optional[str] = None):
@@ -383,39 +451,66 @@ class DisplayManager:
         """
         from datetime import datetime, timezone
         
+        
         # Track current session statuses
         current_statuses = {}
         for session in activity_sessions:
-            session_key = f"{session.project_name}_{session.session_id}"
+            session_key = session.project_name  # Use project_name only, not session_id
             current_statuses[session_key] = session.status
         
         current_time = datetime.now(timezone.utc)
         
         # Check for status changes and track WAITING_FOR_USER timestamps
         for session_key, current_status in current_statuses.items():
-            if session_key in self._previous_activity_session_statuses:
-                previous_status = self._previous_activity_session_statuses[session_key]
-                
-                # Track when session enters WAITING_FOR_USER state
-                if (previous_status == "ACTIVE" and current_status == "WAITING_FOR_USER"):
+            previous_status = self._previous_activity_session_statuses.get(session_key)
+            
+            if current_status == "WAITING_FOR_USER":
+                # Track when session enters WAITING_FOR_USER state (from any state or new session)
+                if (previous_status != "WAITING_FOR_USER" and 
+                    session_key not in self._waiting_for_user_timestamps):
                     self._waiting_for_user_timestamps[session_key] = current_time
-                
+            
+            elif current_status != "WAITING_FOR_USER":
                 # Remove timestamp if session leaves WAITING_FOR_USER state
-                elif (previous_status == "WAITING_FOR_USER" and current_status != "WAITING_FOR_USER"):
-                    if session_key in self._waiting_for_user_timestamps:
-                        del self._waiting_for_user_timestamps[session_key]
-        
-        # Check for WAITING_FOR_USER sessions that have lasted >=30 seconds
-        for session_key, current_status in current_statuses.items():
-            if (current_status == "WAITING_FOR_USER" and 
-                session_key in self._waiting_for_user_timestamps):
-                
-                wait_duration = current_time - self._waiting_for_user_timestamps[session_key]
-                if wait_duration.total_seconds() >= 30:
-                    self.play_audio_signal()
-                    # Remove timestamp to prevent repeated audio signals
+                if session_key in self._waiting_for_user_timestamps:
                     del self._waiting_for_user_timestamps[session_key]
-                    break  # Only play once per update cycle
+                # Clear audio played flag when leaving WAITING_FOR_USER
+                if hasattr(self, '_audio_played_sessions') and session_key in self._audio_played_sessions:
+                    self._audio_played_sessions.remove(session_key)
+        
+        # Check for WAITING_FOR_USER sessions that have lasted >=25 seconds
+        for session in activity_sessions:
+            if session.status == "WAITING_FOR_USER":
+                session_key = session.project_name
+                
+                # Track last event time to detect new activity
+                if not hasattr(self, '_last_event_times'):
+                    self._last_event_times = {}
+                
+                current_event_time = session.metadata.get('last_event_time') if session.metadata else None
+                previous_event_time = self._last_event_times.get(session_key)
+                
+                # Clear audio flag if there's new activity (last_event_time changed)
+                if current_event_time != previous_event_time:
+                    if hasattr(self, '_audio_played_sessions') and session_key in self._audio_played_sessions:
+                        self._audio_played_sessions.remove(session_key)
+                    self._last_event_times[session_key] = current_event_time
+                
+                # Use same time calculation as display (from last_event_time)
+                if session.metadata and 'last_event_time' in session.metadata:
+                    try:
+                        reference_time = datetime.fromisoformat(session.metadata['last_event_time'])
+                        wait_duration = current_time - reference_time
+                        if wait_duration.total_seconds() >= 25:
+                            # Prevent repeated alerts for same session
+                            if session_key not in getattr(self, '_audio_played_sessions', set()):
+                                self.play_audio_signal()
+                                if not hasattr(self, '_audio_played_sessions'):
+                                    self._audio_played_sessions = set()
+                                self._audio_played_sessions.add(session_key)
+                                break  # Only play once per update cycle
+                    except (ValueError, KeyError):
+                        continue
         
         # Clean up timestamps for sessions that no longer exist
         existing_sessions = set(current_statuses.keys())
@@ -426,6 +521,64 @@ class DisplayManager:
         
         # Update previous statuses
         self._previous_activity_session_statuses = current_statuses.copy()
+
+    def _check_long_active_sessions(self, activity_sessions: List[ActivitySessionData]):
+        """
+        Check for ACTIVE sessions that have lasted >5 minutes and trigger alert.
+        
+        Args:
+            activity_sessions: Current list of activity sessions
+        """
+        from datetime import datetime, timezone
+        
+        # Track current session statuses
+        current_statuses = {}
+        for session in activity_sessions:
+            session_key = session.project_name  # Use project_name only, not session_id
+            current_statuses[session_key] = session.status
+        
+        current_time = datetime.now(timezone.utc)
+        
+        # Check for status changes and track ACTIVE timestamps
+        for session_key, current_status in current_statuses.items():
+            if session_key in self._previous_activity_session_statuses:
+                previous_status = self._previous_activity_session_statuses[session_key]
+                
+                # Track when session enters ACTIVE state
+                if (previous_status != "ACTIVE" and current_status == "ACTIVE"):
+                    self._long_active_timestamps[session_key] = current_time
+                    # Reset alert flag when session becomes active again
+                    self._long_active_alerted.discard(session_key)
+                
+                # Remove timestamp if session leaves ACTIVE state
+                elif (previous_status == "ACTIVE" and current_status != "ACTIVE"):
+                    if session_key in self._long_active_timestamps:
+                        del self._long_active_timestamps[session_key]
+                    self._long_active_alerted.discard(session_key)
+        
+        # Check for ACTIVE sessions that have lasted >5 minutes
+        for session_key, current_status in current_statuses.items():
+            if (current_status == "ACTIVE" and 
+                session_key in self._long_active_timestamps and
+                session_key not in self._long_active_alerted):
+                
+                active_duration = current_time - self._long_active_timestamps[session_key]
+                if active_duration.total_seconds() >= 300:  # 5 minutes = 300 seconds
+                    self.play_long_active_alert()
+                    # Mark as alerted to prevent repeated alerts
+                    self._long_active_alerted.add(session_key)
+                    break  # Only alert once per update cycle
+        
+        # Clean up timestamps for sessions that no longer exist
+        existing_sessions = set(current_statuses.keys())
+        timestamps_to_remove = [key for key in self._long_active_timestamps.keys() 
+                               if key not in existing_sessions]
+        for key in timestamps_to_remove:
+            del self._long_active_timestamps[key]
+        
+        # Clean up alert flags for sessions that no longer exist
+        self._long_active_alerted = {key for key in self._long_active_alerted 
+                                    if key in existing_sessions}
 
     def _check_activity_session_changes_without_audio(self, activity_sessions: List[ActivitySessionData]) -> bool:
         """
@@ -442,7 +595,7 @@ class DisplayManager:
         # Track current session statuses
         current_statuses = {}
         for session in activity_sessions:
-            session_key = f"{session.project_name}_{session.session_id}"
+            session_key = session.project_name  # Use project_name only, not session_id
             current_statuses[session_key] = session.status
         
         current_time = datetime.now(timezone.utc)
@@ -562,6 +715,28 @@ class DisplayManager:
         seconds = total_seconds % 60
         return f"({minutes:02d}:{seconds:02d})"
 
+    def _is_long_active_session(self, session: ActivitySessionData) -> bool:
+        """
+        Check if an ACTIVE session has been running for more than 5 minutes.
+        
+        Args:
+            session: Activity session to check
+            
+        Returns:
+            bool: True if session is ACTIVE and >5 minutes, False otherwise
+        """
+        if session.status != "ACTIVE":
+            return False
+        
+        session_key = f"{session.project_name}_{session.session_id}"
+        if session_key not in self._long_active_timestamps:
+            return False
+        
+        from datetime import datetime, timezone
+        current_time = datetime.now(timezone.utc)
+        active_duration = current_time - self._long_active_timestamps[session_key]
+        return active_duration.total_seconds() >= 300  # 5 minutes = 300 seconds
+
     def _render_single_activity_session(self, session: ActivitySessionData, verbosity: str, alignment_width: int = 0):
         """
         Render a single activity session based on verbosity level.
@@ -574,6 +749,11 @@ class DisplayManager:
         # Get icon and color from configuration
         icon = self.activity_config["status_icons"].get(session.status, "❓")
         color = self.activity_config["status_colors"].get(session.status, Colors.ENDC)
+        
+        # Add red exclamation mark for long ACTIVE sessions
+        if self._is_long_active_session(session):
+            icon = f"{icon}❗"
+            color = Colors.FAIL  # Red color for long active sessions
         
         # Format project name with truncation and alignment
         max_length = self.activity_config["max_project_name_length"]
@@ -687,6 +867,13 @@ class DisplayManager:
         
         # Render activity sessions if available
         activity_sessions = getattr(monitoring_data, 'activity_sessions', None) or []
+        
+        # Check for activity session changes and play audio if needed (always run, regardless of display settings)
+        self._check_activity_session_changes(activity_sessions)
+        
+        # Check for long ACTIVE sessions and play alert if needed (always run, regardless of display settings)
+        self._check_long_active_sessions(activity_sessions)
+        
         self._render_activity_sessions(activity_sessions)
         
         # Render footer
@@ -695,13 +882,6 @@ class DisplayManager:
         
         # Flush output to ensure screen refresh is complete
         sys.stdout.flush()
-        
-        # Play audio signals AFTER screen refresh is complete
-        if session_state_changed:
-            self.play_audio_signal()
-        
-        if activity_status_changed:
-            self.play_audio_signal()
         
         # Return whether data refresh is needed
         return sessions_changed

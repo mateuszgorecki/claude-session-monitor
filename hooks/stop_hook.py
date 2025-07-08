@@ -87,7 +87,7 @@ def main():
     log_file = os.environ.get('CLAUDE_ACTIVITY_LOG_FILE')
     if not log_file:
         # Default log file - single file, no date suffix
-        hooks_dir = os.path.expanduser('~/.config/claude-monitor/hooks')
+        hooks_dir = '/tmp/claude-monitor'
         log_file = os.path.join(hooks_dir, 'claude_activity.log')
     
     # Create stop event

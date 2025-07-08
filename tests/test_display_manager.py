@@ -740,17 +740,22 @@ class TestDisplayManager(unittest.TestCase):
             # Check that waiting message is displayed
             self.assertIn("Waiting for a new session to start", output)
             
-            # Check that timing suggestion is displayed
-            self.assertIn("Timing suggestion:", output)
+            # Check that timing suggestion is displayed (new format with icons)
+            self.assertTrue(any(icon in output for icon in ['🟢', '🟡', '🟠', '🔴']))
             
-            # Check that the suggestion is not empty
-            lines = output.split('\n')
-            timing_lines = [line for line in lines if 'Timing suggestion:' in line]
-            self.assertEqual(len(timing_lines), 1)
+            # Check that timing message is displayed
+            timing_messages = [
+                "Idealny czas na rozpoczęcie pracy!",
+                "Można zaczynać, timing akceptowalny", 
+                "Timing mógłby być lepszy, ale OK",
+                "Najgorszy możliwy moment na start"
+            ]
+            self.assertTrue(any(msg in output for msg in timing_messages))
             
-            # Extract the suggestion text
-            timing_line = timing_lines[0]
-            self.assertGreater(len(timing_line), len("Timing suggestion:"))
+            # Check that time is displayed in colored format
+            import re
+            time_pattern = r'\(\x1b\[9[123]m\d{2}:\d{2}\x1b\[0m\)'
+            self.assertRegex(output, time_pattern)
             
     def test_timing_display_different_times(self):
         """Test timing suggestions for different time ranges."""
@@ -778,13 +783,17 @@ class TestDisplayManager(unittest.TestCase):
                     display_manager.render_waiting_display(monitoring_data_waiting)
                     output = mock_stdout.getvalue()
                     
-                    # Check timing suggestion is present
-                    self.assertIn("Timing suggestion:", output)
+                    # Check timing suggestion is present (new format with icons)
+                    self.assertTrue(any(icon in output for icon in ['🟢', '🟡', '🟠', '🔴']))
                     
-                    # Check suggestion is not empty
-                    lines = output.split('\n')
-                    timing_lines = [line for line in lines if 'Timing suggestion:' in line]
-                    self.assertEqual(len(timing_lines), 1)
+                    # Check that timing message is displayed
+                    timing_messages = [
+                        "Idealny czas na rozpoczęcie pracy!",
+                        "Można zaczynać, timing akceptowalny", 
+                        "Timing mógłby być lepszy, ale OK",
+                        "Najgorszy możliwy moment na start"
+                    ]
+                    self.assertTrue(any(msg in output for msg in timing_messages))
 
     def test_waiting_for_user_30_second_audio_delay(self):
         """Test that audio signal only plays after WAITING_FOR_USER lasts 30 seconds."""
