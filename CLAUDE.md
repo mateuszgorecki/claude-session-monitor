@@ -48,7 +48,7 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 
 1. **Daemon Collection**: Background service calls `ccusage blocks -j` every 10 seconds
 2. **Billing Period Filtering**: Filters sessions to current billing period using `billing_start_day`
-3. **Activity Session Tracking**: Reads Claude Code hook logs from `~/.config/claude-monitor/hooks/claude_activity.log`
+3. **Activity Session Tracking**: Reads Claude Code hook logs from `/tmp/claude-monitor/claude_activity.log`
 4. **File Storage**: Saves data to `~/.config/claude-monitor/monitor_data.json` with atomic writes
 5. **iCloud Sync**: Automatically syncs to `~/Library/Mobile Documents/com~apple~CloudDocs/claude-monitor/`
 6. **Client Display**: Terminal client reads cached data for instant UI updates
@@ -103,7 +103,7 @@ cp claude_widget.js [Scriptable Scripts folder]
 ### Claude Code Hooks Configuration
 - **Settings File**: `~/.claude/settings.json` - Configure PreToolUse and Stop hooks
 - **Hook Scripts**: Must be executable with absolute paths in settings
-- **Log Location**: `~/.config/claude-monitor/hooks/claude_activity.log`
+- **Log Location**: `/tmp/claude-monitor/claude_activity.log` (see [Activity Log Documentation](docs/claude_activity_log.md))
 - **Optional Feature**: System works without hooks - graceful degradation
 
 ### Key Constants (`src/shared/constants.py`)
@@ -162,7 +162,7 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **File Communication**: Hooks write to log files, daemon reads them (loose coupling)
 - **Smart Status Detection**: Time-based algorithm (stop <2min = WAITING_FOR_USER, 2-30min = IDLE, >30min = INACTIVE)
 - **Project-Based Grouping**: Sessions grouped by project_name (basename of cwd) not session_id
-- **Single Log File**: `claude_activity.log` without date stamps, auto-cleanup after 5h window
+- **Single Log File**: `/tmp/claude-monitor/claude_activity.log` without date stamps, auto-cleanup after 5h window (see [Activity Log Documentation](docs/claude_activity_log.md))
 - **Audio Signals**: Double beeps for activity status changes using osascript → afplay → terminal bell fallback
 
 ### Display Architecture

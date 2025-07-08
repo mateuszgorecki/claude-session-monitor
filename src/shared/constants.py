@@ -125,7 +125,7 @@ VERBOSE_LOGGING = False
 ENABLE_PERFORMANCE_METRICS = False
 
 # Hook System Configuration
-HOOK_LOG_DIR = "~/.config/claude-monitor/hooks"
+HOOK_LOG_DIR = "/tmp/claude-monitor"
 HOOK_LOG_FILE_PATTERN = "claude_activity.log"
 HOOK_LOG_RETENTION_DAYS = 30
 HOOK_LOG_MAX_SIZE_MB = 10
