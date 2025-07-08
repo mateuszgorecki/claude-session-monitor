@@ -38,6 +38,7 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
    - `file_manager.py` - Atomic file operations with iCloud sync
    - `constants.py` - Configuration constants
    - `utils.py` - Common utilities
+   - `hook_log_compressor.py` - Automatic hook log file compression to prevent unbounded growth
 
 4. **Claude Code Hooks** (`hooks/`)
    - `notification_hook.py` - Captures PreToolUse events (activity signals)
@@ -114,6 +115,9 @@ cp claude_widget.js [Scriptable Scripts folder]
 - `ICLOUD_CONTAINER_ID = "com~apple~CloudDocs"` - iCloud sync path
 - `HOOK_LOG_FILE_PATTERN = "claude_activity.log"` - Single log file without date stamps
 - `ACTIVITY_SESSION_CLEANUP_HOURS = 5` - Auto-cleanup after billing window
+- `MAX_EVENTS_PER_SESSION = 20` - Event storage limit per session for compression
+- `MAX_HOOK_LOG_ENTRIES = 50` - Target size after hook log compression
+- `HOOK_LOG_COMPRESSION_THRESHOLD = 100` - Trigger compression when log exceeds this size
 
 ## Architecture Decisions
 
@@ -180,7 +184,19 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Backward Compatibility**: Automated testing ensures all changes maintain compatibility with existing interfaces
 - **Error Handling**: Comprehensive error scenario testing for graceful degradation
 
-### Recent Enhancements (Phase 5)
+### Data Storage Optimization
+- **Hook Log Compression**: Automatic compression prevents unbounded log file growth
+- **Event Storage Limits**: Sessions limited to 20 events each with automatic compression
+- **Size-Based Triggers**: Compression activates when log exceeds 100 entries
+- **Retention Strategy**: Keeps most recent 50 entries after compression
+- **Memory Efficiency**: Prevents large hook log files from consuming excessive disk space
+- **Performance Optimization**: Reduces file I/O overhead for large activity logs
+
+### Recent Enhancements (Phase 6)
+- **Hook Log Management**: Automatic compression system prevents unbounded file growth
+- **Event Compression**: Session events limited to 20 per session with intelligent compression
+- **Size Monitoring**: Configurable thresholds for automatic compression triggers
+- **Memory Optimization**: Prevents large log files from impacting system performance
 - **Integration Tests**: Complete session lifecycle testing with comprehensive coverage of all major transitions
 - **Backward Compatibility**: Verified compatibility with previous versions through automated testing
 - **Error Resilience**: Enhanced error handling and graceful degradation throughout the system

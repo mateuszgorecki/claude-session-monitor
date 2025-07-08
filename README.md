@@ -202,6 +202,9 @@ You can modify these values in the source code:
 - `LOCAL_TZ = ZoneInfo("Europe/Warsaw")` - Default display timezone (can be overridden with --timezone)
 - `ACTIVITY_SESSION_CLEANUP_HOURS = 5` - Auto-cleanup after billing window
 - `HOOK_LOG_FILE_PATTERN = "claude_activity.log"` - Single log file without date stamps
+- `MAX_EVENTS_PER_SESSION = 20` - Event storage limit per session for compression
+- `MAX_HOOK_LOG_ENTRIES = 50` - Target size after hook log compression  
+- `HOOK_LOG_COMPRESSION_THRESHOLD = 100` - Trigger compression when log exceeds this size
 
 ### Claude Code Hooks Integration (Optional)
 
@@ -296,6 +299,8 @@ uv run python3 claude_monitor.py --start-day 15
 - **Notification System**: Rate-limited alerts with message-specific tracking and audio signals
 - **Thread Safety**: Event-based synchronization prevents race conditions
 - **Hook Integration**: Project-based activity session grouping with smart status detection
+- **Log Compression**: Automatic hook log compression prevents unbounded file growth
+- **Memory Optimization**: Event storage limits and size-based compression triggers
 
 **Legacy Mode:**
 - **Direct**: Original `claude_monitor.py` calls `ccusage` on every refresh (still available)
