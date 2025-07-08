@@ -140,6 +140,15 @@ HOOK_STOP_SCRIPT = "stop_hook.py"
 ACTIVITY_SESSION_STATUSES = ["ACTIVE", "WAITING", "STOPPED"]
 HOOK_EVENT_TYPES = ["notification", "stop", "subagentstop"]
 
+# Event Storage Limits
+MAX_EVENTS_PER_SESSION = 20
+MAX_DATA_FILE_SIZE_KB = 50
+ACTIVITY_EVENT_RETENTION_HOURS = 4
+
+# Hook Log File Compression
+MAX_HOOK_LOG_ENTRIES = 50
+HOOK_LOG_COMPRESSION_THRESHOLD = 100
+
 # Work Timing Suggestion Messages
 TIMING_SUGGESTIONS_POSITIVE = [
     "Idealny czas na rozpoczęcie pracy! 🚀",

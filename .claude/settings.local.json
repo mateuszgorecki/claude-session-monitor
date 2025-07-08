@@ -39,7 +39,8 @@
       "Bash(npm run lint)",
       "Bash(npm run:*)",
       "Bash(cat:*)",
-      "Bash(python -m pytest tests/test_display_manager.py::TestDisplayManager::test_screen_clear_on_transition -v)"
+      "Bash(python -m pytest tests/test_display_manager.py::TestDisplayManager::test_screen_clear_on_transition -v)",
+      "Bash(TZ:*)"
     ],
     "deny": []
   }

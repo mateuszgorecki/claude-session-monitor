@@ -201,6 +201,32 @@ class ActivitySessionData:
         else:  # Last event was activity/notification (non-stop)
             return ActivitySessionStatus.ACTIVE.value
 
+    def compress_events(self) -> None:
+        """Compress events to reduce file size by keeping only the most recent events.
+        
+        This method:
+        1. Keeps only the last MAX_EVENTS_PER_SESSION events
+        2. Updates event_count to reflect total historical count
+        3. Preserves event timing information for status calculation
+        """
+        from shared.constants import MAX_EVENTS_PER_SESSION
+        
+        if not self.metadata or 'events' not in self.metadata:
+            return
+            
+        events = self.metadata.get('events', [])
+        if len(events) <= MAX_EVENTS_PER_SESSION:
+            return
+            
+        # Keep the last MAX_EVENTS_PER_SESSION events
+        compressed_events = events[-MAX_EVENTS_PER_SESSION:]
+        
+        # Update metadata with compressed events
+        self.metadata['events'] = compressed_events
+        self.metadata['event_count'] = len(events)  # Keep original count
+        self.metadata['compressed'] = True
+        self.metadata['compression_note'] = f"Showing last {MAX_EVENTS_PER_SESSION} of {len(events)} events"
+
     def validate_schema(self) -> bool:
         """Validate the ActivitySessionData against schema rules."""
         # Check project_name is not empty
