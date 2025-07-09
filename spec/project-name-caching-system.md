@@ -151,19 +151,19 @@ hooks/
 ### **Faza 2: Git Integration - Repository Detection**
 
 #### Zadanie 2.1: Implementacja GitResolver class
-- `[ ]` **(RED)** Utwórz test sprawdzający get_git_root() dla znanego git repository
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj GitResolver.get_git_root() z subprocess call
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Dodaj error handling i timeout dla git commands
-- `[ ]` **(REPEAT)** Dodaj testy dla edge cases (no git, permission errors)
+- `[x]` **(RED)** Utwórz test sprawdzający get_git_root() dla znanego git repository
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj GitResolver.get_git_root() z subprocess call
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Dodaj error handling i timeout dla git commands
+- `[x]` **(REPEAT)** Dodaj testy dla edge cases (no git, permission errors)
 
 #### Zadanie 2.2: Project name extraction z git root
-- `[ ]` **(RED)** Napisz test sprawdzający get_project_name_from_git_root()
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj extraction logic (os.path.basename)
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Dodaj handling dla edge cases (root path, symlinks)
+- `[x]` **(RED)** Napisz test sprawdzający get_project_name_from_git_root()
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj extraction logic (os.path.basename)
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Dodaj handling dla edge cases (root path, symlinks)
 
 ### **Faza 3: Core Resolver - Main Logic Implementation**
 
