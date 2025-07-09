@@ -40,7 +40,8 @@
       "Bash(npm run:*)",
       "Bash(cat:*)",
       "Bash(python -m pytest tests/test_display_manager.py::TestDisplayManager::test_screen_clear_on_transition -v)",
-      "Bash(TZ:*)"
+      "Bash(TZ:*)",
+      "Bash(python -m pytest tests/test_project_models.py::TestProjectInfo::test_create_project_info_with_git_root_and_empty_aliases -v)"
     ],
     "deny": []
   }
