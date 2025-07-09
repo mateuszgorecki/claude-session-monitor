@@ -45,6 +45,9 @@ class TestProjectInfo(unittest.TestCase):
         project_info = ProjectInfo(git_root=git_root)
         initial_accessed_time = project_info.last_accessed
         
+        # Add small delay to ensure timestamp difference
+        time.sleep(0.001)
+        
         # Act
         project_info.add_alias(alias_path)
         

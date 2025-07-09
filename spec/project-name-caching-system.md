@@ -168,27 +168,27 @@ hooks/
 ### **Faza 3: Core Resolver - Main Logic Implementation**
 
 #### Zadanie 3.1: Implementacja ProjectNameResolver.resolve_project_name()
-- `[ ]` **(RED)** Napisz test sprawdzający resolve dla cached path
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj podstawowy lookup flow
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Optymalizuj performance critical paths
-- `[ ]` **(REPEAT)** Dodaj testy dla cache miss scenarios
+- `[x]` **(RED)** Napisz test sprawdzający resolve dla cached path
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj podstawowy lookup flow
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Optymalizuj performance critical paths
+- `[x]` **(REPEAT)** Dodaj testy dla cache miss scenarios
 
 #### Zadanie 3.2: Cache miss handling i adaptive learning
-- `[ ]` **(RED)** Napisz test sprawdzający cache miss + git root detection
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj cache miss logic z git fallback
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Optymalizuj git operations
-- `[ ]` **(REPEAT)** Dodaj testy dla alias creation logic
+- `[x]` **(RED)** Napisz test sprawdzający cache miss + git root detection
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj cache miss logic z git fallback
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Optymalizuj git operations
+- `[x]` **(REPEAT)** Dodaj testy dla alias creation logic
 
 #### Zadanie 3.3: Fallback mechanisms
-- `[ ]` **(RED)** Napisz test sprawdzający fallback do basename przy git failure
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj graceful degradation
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Ujednolic error handling patterns
+- `[x]` **(RED)** Napisz test sprawdzający fallback do basename przy git failure
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj graceful degradation
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Ujednolic error handling patterns
 
 ### **Faza 4: Hook Integration - Refactoring Existing Code**
 

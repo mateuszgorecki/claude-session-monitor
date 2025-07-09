@@ -28,6 +28,7 @@ DEFAULT_CONFIG_DIR = "~/.config/claude-monitor"
 DEFAULT_CONFIG_FILE = "config.json"
 DEFAULT_DATA_FILE = "monitor_data.json"
 DEFAULT_LOG_FILE = "claude-monitor.log"
+DEFAULT_PROJECT_CACHE_FILE = "project_cache.json"
 
 # iCloud Drive Paths
 ICLOUD_CONTAINER_ID = "com~apple~CloudDocs"
