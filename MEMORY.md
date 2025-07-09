@@ -1,3 +1,44 @@
+####################### 2025-07-09, 11:48:04
+## Task: Naprawienie alertu dla długich sesji aktywnych (5+ minut)
+**Date:** 2025-07-09 11:48:04
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Alert dla sesji aktywnych trwających dłużej niż 5 minut nie działał - brak czerwonego wykrzyknika i potrójnego sygnału dźwiękowego
+* **Solution:** Przepisanie logiki trackingu długich sesji ACTIVE żeby używać tej samej metodologii co działający system WAITING_FOR_USER (bazowanie na last_event_time z metadata zamiast session.start_time)
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** 
+  - Unifikacja logiki z systemem WAITING_FOR_USER zamiast tworzenia nowego mechanizmu - wykorzystanie sprawdzonego kodu który już działał
+  - Użycie last_event_time z metadata jako punktu odniesienia zamiast session.start_time - prawidłowe mierzenie czasu od ostatniej aktywności, nie od początku sesji
+  - Usunięcie skomplikowanej logiki trackingu _long_active_timestamps na rzecz prostszego podejścia bazującego na metadata
+* **Method/Algorithm Choices:** 
+  - Zastosowanie tego samego wzorca co w _check_activity_session_changes() dla WAITING_FOR_USER - sprawdzenie last_event_time, resetowanie flag przy nowej aktywności
+  - Kopia mechanizmu _last_event_times dla ACTIVE sesji (_last_active_event_times) żeby rozróżnić tracking różnych stanów
+  - Zachowanie limitu "tylko jeden alert na cykl" przez break statement
+* **Testing Strategy:** 
+  - Zmiana z 5 minut na 15 sekund dla szybkiego testowania funkcjonalności
+  - Ręczne testowanie przez uruchomienie klienta i obserwację zachowania po 15 sekundach
+* **Other Key Decisions:** 
+  - Ujednolicenie kluczy sesji (session.project_name) w _is_long_active_session() żeby pasowały do _check_long_active_sessions()
+  - Zastąpienie błędnej logiki trackingu przejść stanów prostszym sprawdzaniem czasu od ostatniej aktywności
+  - Zachowanie istniejących funkcji play_long_active_alert() i wizualnego oznaczenia czerwonym wykrzyknikiem
+
+### 3. Process Log
+* **Actions Taken:** 
+  1. Analiza problemu - porównanie z działającym systemem WAITING_FOR_USER
+  2. Identyfikacja błędów: tracking tylko przejść stanów, różne klucze sesji, używanie session.start_time zamiast last_event_time
+  3. Usunięcie błędnej logiki trackingu _long_active_timestamps 
+  4. Przepisanie _check_long_active_sessions() na wzór _check_activity_session_changes()
+  5. Dodanie _last_active_event_times dla trackingu zmian w last_event_time
+  6. Ujednolicenie kluczy sesji w _is_long_active_session() (project_name zamiast project_name_session_id)
+  7. Zmiana czasowa na 15 sekund dla testów (linie 577, 749 w display_manager.py)
+* **Challenges Encountered:** 
+  - Zrozumienie dlaczego system WAITING_FOR_USER działał, a ACTIVE nie - różnica w używaniu last_event_time vs session.start_time
+  - Identyfikacja niespójności w kluczach sesji między różnymi funkcjami
+  - Przepisanie logiki bez naruszenia działających mechanizmów alertów
+* **New Dependencies:** Brak - tylko modyfikacja istniejącego kodu
+
 ####################### 2025-07-08, 21:01:37
 ## Task: Implementacja kompresji plików dla optymalizacji rozmiaru danych
 **Date:** 2025-07-08 21:01:37

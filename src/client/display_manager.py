@@ -540,13 +540,24 @@ class DisplayManager:
         current_time = datetime.now(timezone.utc)
         
         # Check for status changes and track ACTIVE timestamps
-        for session_key, current_status in current_statuses.items():
-            if session_key in self._previous_activity_session_statuses:
+        for session in activity_sessions:
+            session_key = session.project_name
+            current_status = session.status
+            
+            # Handle new ACTIVE sessions (not seen before)
+            if session_key not in self._previous_activity_session_statuses and current_status == "ACTIVE":
+                # Use actual session start time for new sessions
+                self._long_active_timestamps[session_key] = session.start_time
+                self._long_active_alerted.discard(session_key)
+            
+            # Handle existing sessions
+            elif session_key in self._previous_activity_session_statuses:
                 previous_status = self._previous_activity_session_statuses[session_key]
                 
                 # Track when session enters ACTIVE state
                 if (previous_status != "ACTIVE" and current_status == "ACTIVE"):
-                    self._long_active_timestamps[session_key] = current_time
+                    # Use actual session start time when transitioning to ACTIVE
+                    self._long_active_timestamps[session_key] = session.start_time
                     # Reset alert flag when session becomes active again
                     self._long_active_alerted.discard(session_key)
                 
@@ -557,17 +568,35 @@ class DisplayManager:
                     self._long_active_alerted.discard(session_key)
         
         # Check for ACTIVE sessions that have lasted >5 minutes
-        for session_key, current_status in current_statuses.items():
-            if (current_status == "ACTIVE" and 
-                session_key in self._long_active_timestamps and
-                session_key not in self._long_active_alerted):
+        for session in activity_sessions:
+            if session.status == "ACTIVE":
+                session_key = session.project_name
                 
-                active_duration = current_time - self._long_active_timestamps[session_key]
-                if active_duration.total_seconds() >= 300:  # 5 minutes = 300 seconds
-                    self.play_long_active_alert()
-                    # Mark as alerted to prevent repeated alerts
-                    self._long_active_alerted.add(session_key)
-                    break  # Only alert once per update cycle
+                # Track last event time to detect new activity (similar to WAITING_FOR_USER logic)
+                if not hasattr(self, '_last_active_event_times'):
+                    self._last_active_event_times = {}
+                
+                current_event_time = session.metadata.get('last_event_time') if session.metadata else None
+                previous_event_time = self._last_active_event_times.get(session_key)
+                
+                # Clear alert flag if there's new activity (last_event_time changed)
+                if current_event_time != previous_event_time:
+                    self._long_active_alerted.discard(session_key)
+                    self._last_active_event_times[session_key] = current_event_time
+                
+                # Use same time calculation as display (from last_event_time)
+                if session.metadata and 'last_event_time' in session.metadata:
+                    try:
+                        reference_time = datetime.fromisoformat(session.metadata['last_event_time'])
+                        active_duration = current_time - reference_time
+                        if active_duration.total_seconds() >= 300:  # 5 minutes = 300 seconds
+                            # Prevent repeated alerts for same session
+                            if session_key not in self._long_active_alerted:
+                                self.play_long_active_alert()
+                                self._long_active_alerted.add(session_key)
+                                break  # Only alert once per update cycle
+                    except (ValueError, KeyError):
+                        continue
         
         # Clean up timestamps for sessions that no longer exist
         existing_sessions = set(current_statuses.keys())
@@ -728,7 +757,7 @@ class DisplayManager:
         if session.status != "ACTIVE":
             return False
         
-        session_key = f"{session.project_name}_{session.session_id}"
+        session_key = session.project_name  # Use same key as in _check_long_active_sessions
         if session_key not in self._long_active_timestamps:
             return False
         
