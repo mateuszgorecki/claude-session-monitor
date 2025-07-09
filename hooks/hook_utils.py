@@ -1,8 +1,9 @@
 import json
 import os
+import subprocess
 import threading
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class HookLogger:
@@ -46,3 +47,73 @@ class HookLogger:
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
                 json.dump(event_with_timestamp, f, ensure_ascii=False, separators=(',', ':'))
                 f.write('\n')
+
+
+def find_project_root(start_path: Optional[str] = None) -> str:
+    """Find the project root directory by looking for common project markers.
+    
+    This function tries multiple strategies to find the true project root:
+    1. Git root directory (most reliable)
+    2. Directory containing common project files (.git, package.json, pyproject.toml, etc.)
+    3. Falls back to current directory basename
+    
+    Args:
+        start_path: Directory to start searching from (defaults to current directory)
+        
+    Returns:
+        Project name (basename of project root directory)
+    """
+    if start_path is None:
+        start_path = os.getcwd()
+    
+    # Strategy 1: Try to find git root
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            cwd=start_path,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            git_root = result.stdout.strip()
+            if git_root:
+                return os.path.basename(git_root)
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+        pass
+    
+    # Strategy 2: Look for common project markers
+    project_markers = [
+        '.git',
+        'package.json',
+        'pyproject.toml',
+        'setup.py',
+        'Cargo.toml',
+        'pom.xml',
+        'build.gradle',
+        'go.mod',
+        'composer.json',
+        'requirements.txt',
+        'Pipfile',
+        'poetry.lock',
+        'yarn.lock',
+        'package-lock.json',
+        '.gitignore'
+    ]
+    
+    current_dir = os.path.abspath(start_path)
+    root_dir = os.path.abspath(os.sep)
+    
+    while current_dir != root_dir:
+        for marker in project_markers:
+            marker_path = os.path.join(current_dir, marker)
+            if os.path.exists(marker_path):
+                return os.path.basename(current_dir)
+        
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:  # Reached root
+            break
+        current_dir = parent_dir
+    
+    # Strategy 3: Fallback to current directory basename
+    return os.path.basename(start_path)
