@@ -109,3 +109,67 @@
   - Required careful testing of git command edge cases and timeouts
 
 * **New Dependencies:** None - maintained zero-dependency requirement using only standard library (subprocess, os, typing)
+
+####################### 2025-07-09 21:38:25
+## Task: Phase 3 - Core Resolver - Main Logic Implementation
+**Date:** 2025-07-09 21:38:25
+**Status:** Success
+
+### 1. Summary
+* **Problem:** Implement the core ProjectNameResolver class that orchestrates all components (ProjectCache, GitResolver) to provide intelligent project name resolution with caching and fallback mechanisms
+* **Solution:** Created comprehensive ProjectNameResolver with cache-first approach, adaptive learning, and graceful error handling, following TDD methodology with extensive test coverage
+
+### 2. Reasoning & Justification
+* **Architectural Choices:** 
+  - Implemented cache-first approach with fast lookup before expensive git operations
+  - Designed three-layer resolution: cache hit → git detection → basename fallback
+  - Used dependency injection pattern for ProjectCache and GitResolver for better testability
+  - Applied adaptive learning by automatically creating aliases for subdirectories
+  - Implemented graceful degradation with fallback mechanisms for all error scenarios
+
+* **Library/Dependency Choices:** 
+  - Used only standard library (os, typing) to maintain project's zero-dependency philosophy
+  - Leveraged existing ProjectCache and GitResolver implementations from previous phases
+  - Avoided complex dependency injection frameworks, using simple constructor injection
+  - Chose standard library os.path.basename() for fallback project name extraction
+
+* **Method/Algorithm Choices:** 
+  - Implemented cache lookup with both direct path and alias matching for comprehensive coverage
+  - Used lazy evaluation approach - cache first, then git operations only when needed
+  - Applied atomic cache updates with full data load-modify-save cycle for consistency
+  - Implemented alias creation logic that distinguishes between git root and subdirectories
+  - Used early return pattern to optimize performance critical paths
+
+* **Testing Strategy:** 
+  - Followed strict TDD approach (RED-GREEN-REFACTOR) with comprehensive test coverage
+  - Created 15 test cases covering all scenarios: cache hits, misses, errors, edge cases
+  - Tested adaptive learning behavior with deep subdirectory navigation
+  - Included concurrent access simulation to verify thread safety considerations
+  - Added comprehensive error handling tests: cache corruption, git failures, None inputs
+  - Used unittest.mock for isolating git operations and testing error scenarios
+
+* **Other Key Decisions:** 
+  - Handled None and empty path inputs gracefully with 'unknown' fallback
+  - Implemented cache miss detection with both direct path and alias matching
+  - Added configuration constants (DEFAULT_PROJECT_CACHE_FILE) for standardization
+  - Created utility function get_project_cache_file_path() for consistent path handling
+  - Designed API to never return None - always provides some project name for stability
+
+### 3. Process Log
+* **Actions Taken:** 
+  - Created comprehensive test suite with 15 test cases in tests/test_project_name_resolver.py
+  - Implemented ProjectNameResolver class with resolve_project_name() main method
+  - Added private helper methods _lookup_in_cache() and _update_cache() for separation of concerns
+  - Created configuration constants DEFAULT_PROJECT_CACHE_FILE in constants.py
+  - Added utility function get_project_cache_file_path() in utils.py
+  - Fixed timing issue in project models test with small delay for timestamp comparison
+  - Verified all tests pass: 15 tests for ProjectNameResolver, 8 for ProjectModels, 9 for GitResolver
+
+* **Challenges Encountered:** 
+  - Initial timing issue with last_accessed timestamp comparison in existing tests
+  - Fixed by adding small delay (0.001s) to ensure measurable timestamp differences
+  - Needed to handle various edge cases: None paths, empty strings, cache corruption
+  - Required careful consideration of cache update patterns for thread safety
+  - Designed comprehensive error handling to ensure system never crashes
+
+* **New Dependencies:** None - maintained zero-dependency requirement using only standard library and existing components from Phase 1 and Phase 2
