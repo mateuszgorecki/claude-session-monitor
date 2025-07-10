@@ -123,7 +123,19 @@ SCHEMA_REQUIRED_FIELDS = {
 # Development and Debug
 DEBUG_MODE = False
 VERBOSE_LOGGING = False
-ENABLE_PERFORMANCE_METRICS = False
+ENABLE_PERFORMANCE_METRICS = True
+
+# Performance and Cache Configuration
+CACHE_PERFORMANCE_LOG_INTERVAL = 100  # Log every N operations
+MAX_CACHE_ENTRIES = 1000  # Maximum number of cached projects
+CACHE_CLEANUP_THRESHOLD = 1200  # Trigger cleanup when cache exceeds this
+CACHE_SIZE_WARNING_THRESHOLD = 800  # Warn when cache approaches limit
+
+# Memory Management Configuration
+CACHE_CLEANUP_BATCH_SIZE = 50  # Number of entries to remove in each cleanup
+MIN_CACHE_RETENTION_HOURS = 24  # Minimum time to keep cache entries
+AGGRESSIVE_CLEANUP_THRESHOLD = 1.5  # Multiplier for aggressive cleanup
+CACHE_HEALTH_CHECK_INTERVAL = 1000  # Operations between health checks
 
 # Hook System Configuration
 HOOK_LOG_DIR = "/tmp/claude-monitor"

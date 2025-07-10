@@ -216,18 +216,18 @@ hooks/
 ### **Faza 5: Performance Optimization i Monitoring**
 
 #### Zadanie 5.1: Cache performance monitoring
-- `[ ]` **(RED)** Napisz test sprawdzający cache hit/miss metrics
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj basic metrics collection
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Integrate z existing logging system
+- `[x]` **(RED)** Napisz test sprawdzający cache hit/miss metrics
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj basic metrics collection
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Integrate z existing logging system
 
 #### Zadanie 5.2: Memory management i cleanup
-- `[ ]` **(RED)** Napisz test sprawdzający cache size limits
-- `[ ]` Uruchom testy i potwierdź failure
-- `[ ]` **(GREEN)** Implementuj size-based cleanup
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Optimize cleanup algorithms
+- `[x]` **(RED)** Napisz test sprawdzający cache size limits
+- `[x]` Uruchom testy i potwierdź failure
+- `[x]` **(GREEN)** Implementuj size-based cleanup
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Optimize cleanup algorithms
 
 ### **Faza 6: Integration Testing i Deployment**
 
