@@ -17,7 +17,8 @@ from .constants import (
     PROGRESS_BAR_FILLED_CHAR, PROGRESS_BAR_EMPTY_CHAR,
     MACOS_TERMINAL_NOTIFIER_CMD, MACOS_OSASCRIPT_CMD,
     TIMING_SUGGESTIONS_POSITIVE, TIMING_SUGGESTIONS_MODERATE,
-    TIMING_SUGGESTIONS_SKEPTICAL, TIMING_SUGGESTIONS_CRITICAL
+    TIMING_SUGGESTIONS_SKEPTICAL, TIMING_SUGGESTIONS_CRITICAL,
+    DEFAULT_CONFIG_DIR, DEFAULT_PROJECT_CACHE_FILE
 )
 
 
@@ -451,3 +452,14 @@ def get_work_timing_suggestion() -> str:
         return random.choice(TIMING_SUGGESTIONS_SKEPTICAL)
     else:
         return random.choice(TIMING_SUGGESTIONS_CRITICAL)
+
+
+def get_project_cache_file_path() -> str:
+    """
+    Get the default project cache file path.
+    
+    Returns:
+        Absolute path to the project cache file
+    """
+    config_dir = os.path.expanduser(DEFAULT_CONFIG_DIR)
+    return os.path.join(config_dir, DEFAULT_PROJECT_CACHE_FILE)

@@ -12,7 +12,7 @@ APP_VERSION = "2.0.0"
 APP_AUTHOR = "Claude Monitor Team"
 
 # Daemon Version Information  
-DAEMON_VERSION = "1.1.0"
+DAEMON_VERSION = "1.2.0"
 
 # Default Configuration Values
 DEFAULT_TOTAL_MONTHLY_SESSIONS = 50
@@ -28,6 +28,7 @@ DEFAULT_CONFIG_DIR = "~/.config/claude-monitor"
 DEFAULT_CONFIG_FILE = "config.json"
 DEFAULT_DATA_FILE = "monitor_data.json"
 DEFAULT_LOG_FILE = "claude-monitor.log"
+DEFAULT_PROJECT_CACHE_FILE = "project_cache.json"
 
 # iCloud Drive Paths
 ICLOUD_CONTAINER_ID = "com~apple~CloudDocs"
@@ -122,7 +123,19 @@ SCHEMA_REQUIRED_FIELDS = {
 # Development and Debug
 DEBUG_MODE = False
 VERBOSE_LOGGING = False
-ENABLE_PERFORMANCE_METRICS = False
+ENABLE_PERFORMANCE_METRICS = True
+
+# Performance and Cache Configuration
+CACHE_PERFORMANCE_LOG_INTERVAL = 100  # Log every N operations
+MAX_CACHE_ENTRIES = 1000  # Maximum number of cached projects
+CACHE_CLEANUP_THRESHOLD = 1200  # Trigger cleanup when cache exceeds this
+CACHE_SIZE_WARNING_THRESHOLD = 800  # Warn when cache approaches limit
+
+# Memory Management Configuration
+CACHE_CLEANUP_BATCH_SIZE = 50  # Number of entries to remove in each cleanup
+MIN_CACHE_RETENTION_HOURS = 24  # Minimum time to keep cache entries
+AGGRESSIVE_CLEANUP_THRESHOLD = 1.5  # Multiplier for aggressive cleanup
+CACHE_HEALTH_CHECK_INTERVAL = 1000  # Operations between health checks
 
 # Hook System Configuration
 HOOK_LOG_DIR = "/tmp/claude-monitor"

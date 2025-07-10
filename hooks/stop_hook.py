@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional
 
 # Add project root to path so we can import hooks module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from hooks.hook_utils import HookLogger
+from hooks.hook_utils import HookLogger, get_project_name_cached
 
 
 def parse_stop_data(stdin_input: str) -> Optional[Dict[str, Any]]:
@@ -58,8 +58,8 @@ def create_stop_event(stop_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     stop_type = determine_stop_type(stop_data)
     
-    # Get project name from current working directory
-    project_name = os.path.basename(os.getcwd())
+    # Get project name using cached resolver
+    project_name = get_project_name_cached()
     
     return {
         'project_name': project_name,
