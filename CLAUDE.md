@@ -143,6 +143,9 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Session Counting**: Prevent duplicates via processed_sessions tracking
 - **Field Parsing**: Use correct ccusage structure (`tokenCounts.inputTokens`, `costUSD`)
 
+### Daemon Restart Considerations
+- If you want to restart the daemon, just kill it and within 60 seconds the cron script will automatically restart it with correct parameters - do not manually start it
+
 ### ccusage Execution Strategy
 - **Strategy Pattern**: CcusageExecutor with multiple fallback strategies
 - **Execution Methods**: WrapperScriptStrategy → DirectSubprocessStrategy → OSSystemStrategy

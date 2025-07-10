@@ -55,7 +55,7 @@
 ### **Stos Technologiczny:**
 - **Python**: 3.9+ (zgodnie z wymaganiami projektu)
 - **Standard Library**: json, os, subprocess, pathlib, threading
-- **File System**: `/tmp/claude-monitor/project_cache.json`
+- **File System**: `/tmp/claude-monitor/project_cache.json` (symlink) → `~/.config/claude-monitor/project_cache.json` (rzeczywisty plik)
 - **Version Control**: Git integration dla git root detection
 - **Testing**: unittest framework (zgodnie z projektem)
 
@@ -304,7 +304,8 @@ ProjectInfo → ProjectCache → GitResolver → ProjectNameResolver → Hook In
 
 ### **Dependencies:**
 - **Git dostępność**: System wymaga git w PATH
-- **File system permissions**: Write access do `/tmp/claude-monitor/`
+- **File system permissions**: Write access do `/tmp/claude-monitor/` i `~/.config/claude-monitor/`
+- **Daemon integration**: Automatyczne tworzenie symlinku przez demon przy starcie
 - **Existing hook system**: Musi pozostać functional during transition
 
 ### **Kryteria Ukończenia Sekcji:**

@@ -65,7 +65,40 @@ class ClaudeDaemon:
         # Session activity tracking component
         self.session_activity_tracker = SessionActivityTracker()
         
+        # Set up symlinks for compatibility with spec
+        self._setup_symlinks()
+        
         self.logger.info(f"Daemon initialized with fetch interval: {config.ccusage_fetch_interval_seconds}s")
+    
+    def _setup_symlinks(self):
+        """Set up symlinks for compatibility with spec."""
+        try:
+            from shared.utils import get_project_cache_file_path
+            from shared.constants import HOOK_LOG_DIR
+            
+            # Source: real cache file in config directory
+            source_path = get_project_cache_file_path()
+            
+            # Target: symlink in /tmp/claude-monitor/
+            tmp_dir = HOOK_LOG_DIR
+            target_path = os.path.join(tmp_dir, "project_cache.json")
+            
+            # Ensure /tmp/claude-monitor/ exists
+            os.makedirs(tmp_dir, exist_ok=True)
+            
+            # Remove existing symlink if it exists
+            if os.path.islink(target_path):
+                os.unlink(target_path)
+            elif os.path.exists(target_path):
+                # If it's a regular file, remove it
+                os.remove(target_path)
+            
+            # Create symlink
+            os.symlink(source_path, target_path)
+            self.logger.info(f"Created symlink: {target_path} -> {source_path}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to create project cache symlink: {e}")
     
     def _setup_logging(self):
         """Set up logging for the daemon."""
