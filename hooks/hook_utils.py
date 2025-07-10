@@ -2,8 +2,14 @@ import json
 import os
 import subprocess
 import threading
+import sys
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
+
+# Add project root to path so we can import shared modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.shared.project_name_resolver import ProjectNameResolver
+from src.shared.utils import get_project_cache_file_path
 
 
 class HookLogger:
@@ -117,3 +123,32 @@ def find_project_root(start_path: Optional[str] = None) -> str:
     
     # Strategy 3: Fallback to current directory basename
     return os.path.basename(start_path)
+
+
+def get_project_name_cached(start_path: Optional[str] = None) -> str:
+    """
+    Get project name using cached ProjectNameResolver with intelligent project detection.
+    
+    This function provides a cache-first approach to project name resolution,
+    using the ProjectNameResolver system with adaptive learning and fallback mechanisms.
+    
+    Args:
+        start_path: Directory to start resolving from (defaults to current directory)
+        
+    Returns:
+        Project name string (never None, always returns some value)
+    """
+    # Use current directory as default if no path provided
+    if not start_path:
+        start_path = os.getcwd()
+    
+    try:
+        # Initialize resolver with standard cache file path
+        cache_file_path = get_project_cache_file_path()
+        resolver = ProjectNameResolver(cache_file_path)
+        
+        # Use resolver to get project name
+        return resolver.resolve_project_name(start_path)
+    except Exception:
+        # Fallback to basename if resolver fails
+        return os.path.basename(start_path) if start_path else 'unknown'
