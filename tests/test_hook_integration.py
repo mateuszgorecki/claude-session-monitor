@@ -200,17 +200,22 @@ class TestHookIntegration(unittest.TestCase):
         git_repo_dir = os.path.join(self.temp_dir, 'test-git-repo')
         os.makedirs(git_repo_dir)
         
+        # Create temporary cache file for this test
+        test_cache_file = os.path.join(self.temp_dir, 'test_cache.json')
+        
         # Initialize git repo
         import subprocess
         try:
             subprocess.run(['git', 'init'], cwd=git_repo_dir, check=True, capture_output=True)
             
-            # Test notification hook with real resolver
+            # Test notification hook with real resolver but using temporary cache file
             notification_data = {"session_id": "real-test", "message": "Real test"}
             with patch('sys.stdin', StringIO(json.dumps(notification_data))):
                 with patch.dict(os.environ, {'CLAUDE_ACTIVITY_LOG_FILE': self.log_file}):
                     with patch('os.getcwd', return_value=git_repo_dir):
-                        notification_main()
+                        # CRITICAL: Mock cache file path to use temporary file, not production!
+                        with patch('hooks.hook_utils.get_project_cache_file_path', return_value=test_cache_file):
+                            notification_main()
             
             # Verify log file was created
             self.assertTrue(os.path.exists(self.log_file))
