@@ -232,15 +232,15 @@ hooks/
 ### **Faza 6: Integration Testing i Deployment**
 
 #### Zadanie 6.1: End-to-end integration tests
-- `[ ]` Napisz integration test sprawdzający full flow: new project → cache creation → alias learning
-- `[ ]` Napisz integration test sprawdzający concurrent access scenarios
-- `[ ]` Napisz integration test sprawdzający graceful degradation przy git failures
-- `[ ]` Uruchom wszystkie integration tests i potwierdź success
+- `[x]` Napisz integration test sprawdzający full flow: new project → cache creation → alias learning
+- `[x]` Napisz integration test sprawdzający concurrent access scenarios
+- `[x]` Napisz integration test sprawdzający graceful degradation przy git failures
+- `[x]` Uruchom wszystkie integration tests i potwierdź success
 
 #### Zadanie 6.2: Backward compatibility verification
-- `[ ]` Uruchom istniejące testy hook system i potwierdź że wszystkie przechodzą
-- `[ ]` Przetestuj scenariusze z existing cache data
-- `[ ]` Zweryfikuj że system działa bez breaking changes
+- `[x]` Uruchom istniejące testy hook system i potwierdź że wszystkie przechodzą
+- `[x]` Przetestuj scenariusze z existing cache data
+- `[x]` Zweryfikuj że system działa bez breaking changes
 
 ### **Kryteria Ukończenia Sekcji:**
 - `[ ]` Wszystkie fazy są logicznie uporządkowane.
