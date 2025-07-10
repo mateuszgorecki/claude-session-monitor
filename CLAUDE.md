@@ -39,11 +39,17 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
    - `constants.py` - Configuration constants
    - `utils.py` - Common utilities
    - `hook_log_compressor.py` - Automatic hook log file compression to prevent unbounded growth
+   - `project_models.py` - ProjectInfo and ProjectCache classes for intelligent project name caching
+   - `git_resolver.py` - Git repository detection and project name extraction
+   - `project_name_resolver.py` - Core project name resolution with cache-first approach and adaptive learning
+   - `performance_metrics.py` - Cache performance monitoring and hit/miss ratio tracking
+   - `memory_manager.py` - LRU-based cache cleanup and memory management
 
 4. **Claude Code Hooks** (`hooks/`)
    - `notification_hook.py` - Captures PreToolUse events (activity signals)
    - `stop_hook.py` - Captures Stop events (session completion)
    - `activity_hook.py` - Alternative to notification_hook for activity events
+   - `hook_utils.py` - Shared utilities including `get_project_name_cached()` function
 
 ### Data Flow
 
@@ -60,7 +66,7 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 ### Package Management
 - **Python Package Manager**: Uses `uv` instead of pip for dependency management
 - **Virtual Environment**: `uv venv` and `uv pip install`
-- **Testing**: `uv run python -m pytest` (271 tests total including integration tests)
+- **Testing**: `uv run python -m pytest` (308 tests total including integration tests)
 
 ### Running the System
 
@@ -118,6 +124,9 @@ cp claude_widget.js [Scriptable Scripts folder]
 - `MAX_EVENTS_PER_SESSION = 20` - Event storage limit per session for compression
 - `MAX_HOOK_LOG_ENTRIES = 50` - Target size after hook log compression
 - `HOOK_LOG_COMPRESSION_THRESHOLD = 100` - Trigger compression when log exceeds this size
+- `DEFAULT_PROJECT_CACHE_FILE = "project_cache.json"` - Project name cache storage
+- `MAX_CACHE_ENTRIES = 1000` - Maximum cached projects before cleanup
+- `MIN_CACHE_RETENTION_HOURS = 24` - Minimum cache entry retention time
 
 ## Architecture Decisions
 
@@ -171,6 +180,7 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Project-Based Grouping**: Sessions grouped by project_name (basename of cwd) not session_id
 - **Single Log File**: `/tmp/claude-monitor/claude_activity.log` without date stamps, auto-cleanup after 5h window (see [Activity Log Documentation](docs/claude_activity_log.md))
 - **Audio Signals**: Double beeps for activity status changes using osascript → afplay → terminal bell fallback
+- **Project Name Caching**: Intelligent project identification using git repository detection, cache-first approach with adaptive learning, and symlink compatibility layer for /tmp storage requirements
 
 ### Display Architecture
 - **Activity Sessions**: Separate from billing sessions with configurable verbosity (minimal/normal/verbose)
@@ -182,7 +192,7 @@ cp claude_widget.js [Scriptable Scripts folder]
 ### Testing Strategy
 - **TDD Approach**: RED-GREEN-REFACTOR cycles for all components
 - **Standard Library Only**: No external test dependencies, uses unittest framework
-- **Comprehensive Coverage**: 271 tests including unit, integration, and lifecycle tests
+- **Comprehensive Coverage**: 308 tests including unit, integration, and lifecycle tests
 - **Integration Testing**: Full session lifecycle testing covering active sessions → cleanup → waiting → new session transitions
 - **Backward Compatibility**: Automated testing ensures all changes maintain compatibility with existing interfaces
 - **Error Handling**: Comprehensive error scenario testing for graceful degradation
@@ -203,4 +213,5 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Integration Tests**: Complete session lifecycle testing with comprehensive coverage of all major transitions
 - **Backward Compatibility**: Verified compatibility with previous versions through automated testing
 - **Error Resilience**: Enhanced error handling and graceful degradation throughout the system
-- **Test Coverage**: Expanded test suite from 87 to 271 tests with integration and lifecycle coverage
+- **Test Coverage**: Expanded test suite from 87 to 308 tests with integration and lifecycle coverage
+- **Project Name Caching System**: Complete 6-phase implementation with intelligent git repository detection, cache-first resolution, adaptive learning, performance metrics, memory management, and comprehensive E2E integration testing

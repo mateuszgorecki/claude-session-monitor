@@ -12,7 +12,7 @@ APP_VERSION = "2.0.0"
 APP_AUTHOR = "Claude Monitor Team"
 
 # Daemon Version Information  
-DAEMON_VERSION = "1.1.0"
+DAEMON_VERSION = "1.2.0"
 
 # Default Configuration Values
 DEFAULT_TOTAL_MONTHLY_SESSIONS = 50
