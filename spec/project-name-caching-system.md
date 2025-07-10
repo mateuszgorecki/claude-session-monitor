@@ -193,25 +193,25 @@ hooks/
 ### **Faza 4: Hook Integration - Refactoring Existing Code**
 
 #### Zadanie 4.1: Refactoring notification_hook.py
-- `[ ]` **(RED)** Napisz test sprawdzający get_project_name() w notification_hook
-- `[ ]` Uruchom testy i potwierdź że używa starej implementacji
-- `[ ]` **(GREEN)** Zastąp os.path.basename(os.getcwd()) wywołaniem ProjectNameResolver
-- `[ ]` Uruchom testy i potwierdź że używa nowej implementacji
-- `[ ]` **(REFACTOR)** Cleanup starych imports i dead code
+- `[x]` **(RED)** Napisz test sprawdzający get_project_name() w notification_hook
+- `[x]` Uruchom testy i potwierdź że używa starej implementacji
+- `[x]` **(GREEN)** Zastąp os.path.basename(os.getcwd()) wywołaniem ProjectNameResolver
+- `[x]` Uruchom testy i potwierdź że używa nowej implementacji
+- `[x]` **(REFACTOR)** Cleanup starych imports i dead code
 
 #### Zadanie 4.2: Refactoring stop_hook.py
-- `[ ]` **(RED)** Napisz test sprawdzający integration z ProjectNameResolver
-- `[ ]` Uruchom testy i potwierdź integration
-- `[ ]` **(GREEN)** Implementuj changes w stop_hook.py
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Ensure consistent error handling
+- `[x]` **(RED)** Napisz test sprawdzający integration z ProjectNameResolver
+- `[x]` Uruchom testy i potwierdź integration
+- `[x]` **(GREEN)** Implementuj changes w stop_hook.py
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Ensure consistent error handling
 
 #### Zadanie 4.3: Refactoring activity_hook.py
-- `[ ]` **(RED)** Napisz test sprawdzający nową implementację
-- `[ ]` Uruchom testy i potwierdź changes
-- `[ ]` **(GREEN)** Apply ProjectNameResolver w activity_hook.py
-- `[ ]` Uruchom testy i potwierdź success
-- `[ ]` **(REFACTOR)** Cleanup i optimization
+- `[x]` **(RED)** Napisz test sprawdzający nową implementację
+- `[x]` Uruchom testy i potwierdź changes
+- `[x]` **(GREEN)** Apply ProjectNameResolver w activity_hook.py
+- `[x]` Uruchom testy i potwierdź success
+- `[x]` **(REFACTOR)** Cleanup i optimization
 
 ### **Faza 5: Performance Optimization i Monitoring**
 

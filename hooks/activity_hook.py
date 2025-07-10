@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional
 
 # Add project root to path so we can import hooks module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from hooks.hook_utils import HookLogger, find_project_root
+from hooks.hook_utils import HookLogger, get_project_name_cached
 
 
 def parse_activity_data(stdin_input: str) -> Optional[Dict[str, Any]]:
@@ -42,8 +42,8 @@ def create_activity_event(activity_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Activity event formatted for logging
     """
-    # Get project name from project root directory
-    project_name = find_project_root()
+    # Get project name using cached resolver
+    project_name = get_project_name_cached()
     
     return {
         'project_name': project_name,
