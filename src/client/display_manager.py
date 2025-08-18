@@ -257,20 +257,93 @@ class DisplayManager:
                 return session
         return None
 
-    def calculate_session_stats(self, total_monthly_sessions: int, current_sessions: int,
-                              days_in_period: int, days_remaining: int) -> Dict[str, Any]:
+    def calculate_window_stats(self, monitoring_data) -> Dict[str, Any]:
         """
-        Calculate session usage statistics.
+        Calculate 5-hour window usage statistics.
         
         Args:
-            total_monthly_sessions: Total sessions allowed per month
-            current_sessions: Sessions used so far
-            days_in_period: Total days in billing period
-            days_remaining: Days remaining in period
+            monitoring_data: Current monitoring data
             
         Returns:
-            Dictionary with session statistics
+            Dictionary with window statistics including plan detection
         """
+        try:
+            try:
+                from ..shared.utils import (
+                    calculate_total_windows_in_period,
+                    calculate_remaining_windows,
+                    detect_subscription_plan_from_ccusage,
+                    run_ccusage_command,
+                    calculate_current_window_usage
+                )
+            except ImportError:
+                from shared.utils import (
+                    calculate_total_windows_in_period,
+                    calculate_remaining_windows,
+                    detect_subscription_plan_from_ccusage,
+                    run_ccusage_command,
+                    calculate_current_window_usage
+                )
+            
+            # Calculate total windows in billing period
+            total_windows = calculate_total_windows_in_period(
+                monitoring_data.billing_period_start,
+                monitoring_data.billing_period_end
+            )
+            
+            # Calculate remaining windows
+            remaining_windows = calculate_remaining_windows(
+                monitoring_data.billing_period_start,
+                monitoring_data.billing_period_end
+            )
+            
+            # Detect subscription plan
+            ccusage_data = run_ccusage_command()
+            plan_info = detect_subscription_plan_from_ccusage(ccusage_data)
+            
+            # Calculate current window usage
+            current_window = calculate_current_window_usage()
+            
+            # Mock current window prompt usage (would be calculated from actual session data)
+            # For now, use a placeholder based on current sessions
+            current_window_prompts = len(monitoring_data.current_sessions)
+            max_prompts_per_window = plan_info['prompts_per_window']
+            
+            return {
+                'total_windows': total_windows,
+                'remaining_windows': remaining_windows,
+                'windows_used': total_windows - remaining_windows,
+                'plan_name': plan_info['plan_name'],
+                'current_window_prompts': current_window_prompts,
+                'max_prompts_per_window': max_prompts_per_window,
+                'current_window_start': current_window['window_start'],
+                'current_window_end': current_window['window_end'],
+                'plan_confidence': plan_info['confidence']
+            }
+        except ImportError:
+            # Fallback to old session-based calculation
+            return self.calculate_session_stats_fallback(monitoring_data)
+        except Exception:
+            # Fallback to old session-based calculation for any other error
+            return self.calculate_session_stats_fallback(monitoring_data)
+    
+    def calculate_session_stats_fallback(self, monitoring_data) -> Dict[str, Any]:
+        """
+        Fallback to session-based calculation if new system fails.
+        
+        Args:
+            monitoring_data: Current monitoring data
+            
+        Returns:
+            Dictionary with session statistics (legacy)
+        """
+        total_monthly_sessions = self.total_monthly_sessions
+        current_sessions = monitoring_data.total_sessions_this_month
+        
+        period_duration = monitoring_data.billing_period_end - monitoring_data.billing_period_start
+        days_in_period = period_duration.days
+        days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
+        
         sessions_used = current_sessions
         sessions_left = total_monthly_sessions - current_sessions
         
@@ -283,7 +356,8 @@ class DisplayManager:
         return {
             'sessions_used': sessions_used,
             'sessions_left': sessions_left,
-            'avg_sessions_per_day': avg_sessions_per_day
+            'avg_sessions_per_day': avg_sessions_per_day,
+            'is_fallback': True
         }
 
     def render_active_session_display(self, monitoring_data: MonitoringData, 
@@ -295,27 +369,54 @@ class DisplayManager:
             monitoring_data: Current monitoring data
             active_session: The active session to display
         """
-        # Calculate token usage percentage
-        token_usage_percent = self.calculate_token_usage_percentage(
-            active_session.total_tokens, monitoring_data.max_tokens_per_session
-        )
+        # Calculate window statistics
+        window_stats = self.calculate_window_stats(monitoring_data)
         
-        # Calculate time progress
-        current_time = datetime.now(timezone.utc)
-        time_progress_percent = self.calculate_time_progress_percentage(
-            active_session.start_time, active_session.end_time, current_time
-        )
-        
-        # Calculate time remaining
-        time_remaining = active_session.end_time - current_time
-        
-        # Display progress bars (same format as claude_monitor.py)
-        print(f"Token Usage:   {Colors.GREEN}{self.create_progress_bar(token_usage_percent)}{Colors.ENDC} {token_usage_percent:.1f}%")
-        print(f"Time to Reset: {Colors.BLUE}{self.create_progress_bar(time_progress_percent)}{Colors.ENDC} {self.format_timedelta(time_remaining)}")
-        
-        # Display session details
-        print(f"\n{Colors.BOLD}Tokens:{Colors.ENDC}        {active_session.total_tokens:,} / ~{monitoring_data.max_tokens_per_session:,}")
-        print(f"{Colors.BOLD}Session Cost:{Colors.ENDC}  ${active_session.cost_usd:.2f}\n")
+        if not window_stats.get('is_fallback'):
+            # Display 5-hour window information
+            remaining_windows = window_stats['remaining_windows']
+            total_windows = window_stats['total_windows']
+            
+            # Calculate percentage for progress bar
+            window_percentage = ((total_windows - remaining_windows) / total_windows * 100) if total_windows > 0 else 0
+            progress_bar = self.create_progress_bar(window_percentage)
+            
+            print(f"⏰ 5h Windows: {Colors.GREEN}{progress_bar}{Colors.ENDC} {remaining_windows}/{total_windows} remaining")
+            
+            # Current window information
+            current_prompts = window_stats['current_window_prompts']
+            max_prompts = window_stats['max_prompts_per_window']
+            plan_name = window_stats['plan_name'].replace('_', ' ')
+            
+            print(f"🔥 Current window: {current_prompts}/{max_prompts} prompts used ({plan_name} Plan)")
+            
+            # Show subscription period start
+            period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
+            days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
+            print(f"📅 Started: {period_start} ({days_remaining} days remaining)")
+        else:
+            # Fallback to original token/time display
+            # Calculate token usage percentage
+            token_usage_percent = self.calculate_token_usage_percentage(
+                active_session.total_tokens, monitoring_data.max_tokens_per_session
+            )
+            
+            # Calculate time progress
+            current_time = datetime.now(timezone.utc)
+            time_progress_percent = self.calculate_time_progress_percentage(
+                active_session.start_time, active_session.end_time, current_time
+            )
+            
+            # Calculate time remaining
+            time_remaining = active_session.end_time - current_time
+            
+            # Display progress bars (same format as claude_monitor.py)
+            print(f"Token Usage:   {Colors.GREEN}{self.create_progress_bar(token_usage_percent)}{Colors.ENDC} {token_usage_percent:.1f}%")
+            print(f"Time to Reset: {Colors.BLUE}{self.create_progress_bar(time_progress_percent)}{Colors.ENDC} {self.format_timedelta(time_remaining)}")
+            
+            # Display session details
+            print(f"\n{Colors.BOLD}Tokens:{Colors.ENDC}        {active_session.total_tokens:,} / ~{monitoring_data.max_tokens_per_session:,}")
+            print(f"{Colors.BOLD}Session Cost:{Colors.ENDC}  ${active_session.cost_usd:.2f}\n")
 
     def render_waiting_display(self, monitoring_data: MonitoringData):
         """
@@ -324,12 +425,39 @@ class DisplayManager:
         Args:
             monitoring_data: Current monitoring data
         """
-        print(f"\n{Colors.WARNING}Waiting for a new session to start...{Colors.ENDC}\n")
-        print(f"Saved max tokens: {monitoring_data.max_tokens_per_session:,}")
+        # Calculate window statistics
+        window_stats = self.calculate_window_stats(monitoring_data)
         
-        # Show current subscription period start
-        period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
-        print(f"Current subscription period started: {period_start}")
+        if not window_stats.get('is_fallback'):
+            # Display 5-hour window information
+            remaining_windows = window_stats['remaining_windows']
+            total_windows = window_stats['total_windows']
+            
+            # Calculate percentage for progress bar
+            window_percentage = ((total_windows - remaining_windows) / total_windows * 100) if total_windows > 0 else 0
+            progress_bar = self.create_progress_bar(window_percentage)
+            
+            print(f"⏰ 5h Windows: {Colors.GREEN}{progress_bar}{Colors.ENDC} {remaining_windows}/{total_windows} remaining")
+            
+            # Current window information
+            current_prompts = window_stats['current_window_prompts']
+            max_prompts = window_stats['max_prompts_per_window']
+            plan_name = window_stats['plan_name'].replace('_', ' ')
+            
+            print(f"🔥 Current window: {current_prompts}/{max_prompts} prompts used ({plan_name} Plan)")
+            
+            # Show subscription period start
+            period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
+            days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
+            print(f"📅 Started: {period_start} ({days_remaining} days remaining)")
+        else:
+            # Fallback to old display
+            print(f"\n{Colors.WARNING}Waiting for a new session to start...{Colors.ENDC}\n")
+            print(f"Saved max tokens: {monitoring_data.max_tokens_per_session:,}")
+            
+            # Show current subscription period start
+            period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
+            print(f"Current subscription period started: {period_start}")
         
         # Get stable timing suggestion with icon and colored time
         current_time = datetime.now()
@@ -339,35 +467,50 @@ class DisplayManager:
         colored_time = f"{color}{current_time.strftime('%H:%M')}{Colors.ENDC}"
         print(f"\n{icon} {color}{message}{Colors.ENDC} ({colored_time})\n")
 
-    def render_footer(self, current_time: datetime, session_stats: Dict[str, Any],
+    def render_footer(self, current_time: datetime, window_stats: Dict[str, Any],
                      days_remaining: int, total_cost: float, daemon_version: Optional[str] = None):
         """
-        Render footer with session statistics and cost.
+        Render footer with 5-hour window statistics and cost.
         
         Args:
             current_time: Current local time
-            session_stats: Session usage statistics
+            window_stats: Window usage statistics
             days_remaining: Days remaining in billing period
             total_cost: Total cost for the month
             daemon_version: Daemon version if available
         """
         print("=" * 60)
         
-        # Footer line 1: Time, sessions, cost
-        footer_line1 = (
-            f"⏰ {current_time.strftime('%H:%M:%S')}   "
-            f"🗓️ Sessions: {Colors.BOLD}{session_stats['sessions_used']} used, "
-            f"{session_stats['sessions_left']} left{Colors.ENDC} | "
-            f"💰 Cost (mo): ${total_cost:.2f}"
-        )
-        
-        # Footer line 2: Shortened for better readability
-        version_info = daemon_version if daemon_version else "unknown"
-        footer_line2 = (
-            f"  └─ ⏳ {days_remaining}d left "
-            f"(avg {session_stats['avg_sessions_per_day']:.1f}/day) | "
-            f"🖥️ Server: {version_info} | Ctrl+C exit"
-        )
+        if window_stats.get('is_fallback'):
+            # Fallback to old session display
+            footer_line1 = (
+                f"⏰ {current_time.strftime('%H:%M:%S')}   "
+                f"🗓️ Sessions: {Colors.BOLD}{window_stats['sessions_used']} used, "
+                f"{window_stats['sessions_left']} left{Colors.ENDC} | "
+                f"💰 Cost (mo): ${total_cost:.2f}"
+            )
+            
+            version_info = daemon_version if daemon_version else "unknown"
+            footer_line2 = (
+                f"  └─ ⏳ {days_remaining}d left "
+                f"(avg {window_stats['avg_sessions_per_day']:.1f}/day) | "
+                f"🖥️ Server: {version_info} | Ctrl+C exit"
+            )
+        else:
+            # New 5-hour window display
+            remaining_windows = window_stats['remaining_windows']
+            total_windows = window_stats['total_windows']
+            
+            footer_line1 = (
+                f"⏰ {current_time.strftime('%H:%M:%S')}   "
+                f"💰 Cost (mo): ${total_cost:.2f}"
+            )
+            
+            version_info = daemon_version if daemon_version else "unknown"
+            footer_line2 = (
+                f"  └─ ⏳ {days_remaining}d left | "
+                f"🖥️ Server: {version_info} | Ctrl+C exit"
+            )
         
         print(footer_line1)
         print(footer_line2)
@@ -879,13 +1022,8 @@ class DisplayManager:
         days_in_period = period_duration.days
         days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
         
-        # Calculate session statistics
-        session_stats = self.calculate_session_stats(
-            self.total_monthly_sessions,
-            monitoring_data.total_sessions_this_month,
-            days_in_period,
-            days_remaining
-        )
+        # Calculate window statistics (replaces session statistics)
+        window_stats = self.calculate_window_stats(monitoring_data)
         
         if active_session:
             # Render active session display
@@ -906,7 +1044,7 @@ class DisplayManager:
         self._render_activity_sessions(activity_sessions)
         
         # Render footer
-        self.render_footer(current_time, session_stats, days_remaining, 
+        self.render_footer(current_time, window_stats, days_remaining, 
                           monitoring_data.total_cost_this_month, monitoring_data.daemon_version)
         
         # Flush output to ensure screen refresh is complete

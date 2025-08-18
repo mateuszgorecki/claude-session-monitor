@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Python-based Claude API token usage monitor that provides real-time tracking of token consumption, costs, and session limits. The tool displays a terminal-based dashboard showing progress bars for token usage and time remaining in active sessions.
+This is a Python-based Claude API token usage monitor that provides real-time tracking of token consumption, costs, and 5-hour window limits based on Anthropic's official billing structure. The tool displays a terminal-based dashboard showing progress bars for 5-hour window usage, automatic subscription plan detection, and activity session tracking with an elegant emoji-enhanced interface.
 
 ## Architecture
 
@@ -30,14 +30,14 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 
 2. **Client Interface** (`src/client/`)
    - `data_reader.py` - File-based data access with caching
-   - `display_manager.py` - Terminal UI with anti-flicker system, compressed footer, and activity sessions display
+   - `display_manager.py` - Terminal UI with 5-hour window system, emoji interface, subscription plan detection, and graceful fallback
    - `claude_client.py` - Main client with daemon detection
 
 3. **Shared Infrastructure** (`src/shared/`)
    - `data_models.py` - SessionData, MonitoringData, ConfigData, ActivitySessionData classes
    - `file_manager.py` - Atomic file operations with iCloud sync
-   - `constants.py` - Configuration constants
-   - `utils.py` - Common utilities
+   - `constants.py` - Configuration constants including 5-hour window system and subscription plans
+   - `utils.py` - Common utilities including window calculations and subscription plan detection
    - `hook_log_compressor.py` - Automatic hook log file compression to prevent unbounded growth
    - `project_models.py` - ProjectInfo and ProjectCache classes for intelligent project name caching
    - `git_resolver.py` - Git repository detection and project name extraction
@@ -72,19 +72,18 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 ### Running the System
 
 ```bash
-# Global Installation (Recommended)
+# Global Installation (Recommended) - New 5h Window System
 uv tool install .  # Install ccmonitor command globally
-ccmonitor  # Run with automatic subscription detection (default)
-ccmonitor --no-auto-detect --sessions 50  # Use manual session limits
+ccmonitor  # Run with automatic subscription plan detection and 5h window display
 
-# Daemon + Client Architecture 
+# Daemon + Client Architecture - New 5h Window System
 ./scripts/install_cron.sh  # Install daemon service via cron
-uv run python3 claude_client.py  # Run client with auto-detection (default)
-uv run python3 claude_client.py --no-auto-detect --sessions 100  # Manual limits
+uv run python3 claude_client.py  # Run client with 5h windows and plan detection
 
-# Daemon (auto-detection enabled by default)
+# Daemon (5h window system enabled by default)
 uv run python3 run_daemon.py  # With automatic subscription detection
-uv run python3 run_daemon.py --no-auto-detect --sessions 75  # Manual limits
+
+# Legacy session-based fallback available if 5h window system fails
 
 # Legacy monolithic mode
 python3 claude_monitor.py
@@ -125,7 +124,9 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Optional Feature**: System works without hooks - graceful degradation
 
 ### Key Constants (`src/shared/constants.py`)
-- `TOTAL_MONTHLY_SESSIONS = 50` - Expected monthly session limit
+- `WINDOW_DURATION_HOURS = 5` - 5-hour window duration based on Anthropic's billing structure
+- `SUBSCRIPTION_PLANS` - Pro ($20/mo: 10-40 prompts), Max 5x ($100/mo: 50-200), Max 20x ($200/mo: 200-800)
+- `TOTAL_MONTHLY_SESSIONS = 50` - Legacy fallback session limit
 - `TIME_REMAINING_ALERT_MINUTES = 30` - Warning threshold for session end
 - `INACTIVITY_ALERT_MINUTES = 10` - Notification for idle periods
 - `DEFAULT_CCUSAGE_FETCH_INTERVAL_SECONDS = 10` - Data collection frequency
@@ -225,14 +226,12 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Fallback Strategy**: Defaults to Claude Max (50 sessions) when detection fails
 - **CLI Control**: `--no-auto-detect` flag to disable and use manual `--sessions` values
 
-### Recent Enhancements (Phase 6)
-- **Hook Log Management**: Automatic compression system prevents unbounded file growth
-- **Event Compression**: Session events limited to 20 per session with intelligent compression
-- **Size Monitoring**: Configurable thresholds for automatic compression triggers
-- **Memory Optimization**: Prevents large log files from impacting system performance
-- **Integration Tests**: Complete session lifecycle testing with comprehensive coverage of all major transitions
-- **Backward Compatibility**: Verified compatibility with previous versions through automated testing
-- **Error Resilience**: Enhanced error handling and graceful degradation throughout the system
-- **Test Coverage**: Expanded test suite from 87 to 308 tests with integration and lifecycle coverage
-- **Project Name Caching System**: Complete 6-phase implementation with intelligent git repository detection, cache-first resolution, adaptive learning, performance metrics, memory management, and comprehensive E2E integration testing
-- **Subscription Auto-Detection**: Intelligent subscription type detection with automatic session limit configuration
+### Recent Enhancements (Phase 7 - 5-Hour Window System)
+- **5-Hour Window System**: Complete replacement of monthly session tracking with Anthropic's official 5-hour window billing structure
+- **Subscription Plan Detection**: Automatic detection of Pro ($20/mo), Max 5x ($100/mo), and Max 20x ($200/mo) plans with intelligent prompt limit configuration
+- **Emoji-Enhanced Interface**: Modern UI with ⏰ 5h Windows, 🔥 Current window, 📅 Started date, and 💰 Cost display
+- **Billing Period Integration**: Accurate window calculations based on real subscription periods rather than fixed monthly estimates
+- **Graceful Fallback**: Seamless degradation to legacy session display if 5-hour window system encounters errors
+- **Real-time Window Tracking**: Dynamic progress bars showing remaining windows and current window prompt usage
+- **Plan-Aware Limits**: Automatic configuration of prompt limits per window based on detected subscription plan
+- **Comprehensive Window Utilities**: New utility functions for window calculations, plan detection, and current window analysis

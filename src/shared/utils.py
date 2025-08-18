@@ -18,7 +18,8 @@ from .constants import (
     MACOS_TERMINAL_NOTIFIER_CMD, MACOS_OSASCRIPT_CMD,
     TIMING_SUGGESTIONS_POSITIVE, TIMING_SUGGESTIONS_MODERATE,
     TIMING_SUGGESTIONS_SKEPTICAL, TIMING_SUGGESTIONS_CRITICAL,
-    DEFAULT_CONFIG_DIR, DEFAULT_PROJECT_CACHE_FILE
+    DEFAULT_CONFIG_DIR, DEFAULT_PROJECT_CACHE_FILE,
+    WINDOW_DURATION_HOURS, SUBSCRIPTION_PLANS
 )
 
 
@@ -601,3 +602,157 @@ def _analyze_subscription_patterns(session_durations: List[float],
             'detection_method': 'pattern_analysis_cost_structure',
             'confidence': 'high'
         }
+
+
+def calculate_total_windows_in_period(period_start: datetime, period_end: datetime) -> int:
+    """
+    Calculate total number of 5-hour windows in a billing period.
+    
+    Args:
+        period_start: Start of billing period
+        period_end: End of billing period
+        
+    Returns:
+        Total number of 5-hour windows in the period
+    """
+    total_duration = period_end - period_start
+    total_hours = total_duration.total_seconds() / 3600
+    return int(total_hours / WINDOW_DURATION_HOURS)
+
+
+def calculate_remaining_windows(period_start: datetime, period_end: datetime, 
+                              current_time: Optional[datetime] = None) -> int:
+    """
+    Calculate remaining 5-hour windows until end of billing period.
+    
+    Args:
+        period_start: Start of billing period
+        period_end: End of billing period
+        current_time: Current time (defaults to now)
+        
+    Returns:
+        Number of remaining 5-hour windows
+    """
+    if current_time is None:
+        current_time = datetime.now(UTC_TIMEZONE)
+    
+    time_remaining = period_end - current_time
+    if time_remaining.total_seconds() <= 0:
+        return 0
+    
+    hours_remaining = time_remaining.total_seconds() / 3600
+    return max(0, int(hours_remaining / WINDOW_DURATION_HOURS))
+
+
+def detect_subscription_plan_from_ccusage(ccusage_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Detect subscription plan (Pro/Max 5x/Max 20x) based on ccusage data patterns.
+    
+    Args:
+        ccusage_data: Raw ccusage command output
+        
+    Returns:
+        Dictionary with detected plan information:
+        {
+            'plan_name': str,
+            'prompts_per_window': int,
+            'detection_method': str,
+            'confidence': str
+        }
+    """
+    if "error" in ccusage_data or not ccusage_data.get("blocks"):
+        return {
+            'plan_name': 'Pro',
+            'prompts_per_window': SUBSCRIPTION_PLANS['Pro']['default_prompts_per_window'],
+            'detection_method': 'default_fallback',
+            'confidence': 'low'
+        }
+    
+    blocks = ccusage_data["blocks"]
+    
+    # Analyze cost patterns to detect plan
+    costs = []
+    session_counts = len(blocks)
+    
+    for block in blocks:
+        if "costUSD" in block:
+            costs.append(block["costUSD"])
+    
+    # Detection logic based on cost structure and session patterns
+    if len(costs) > 0:
+        avg_cost = sum(costs) / len(costs) if costs else 0
+        max_cost = max(costs) if costs else 0
+        
+        # High session count with low costs = higher tier subscription
+        if session_counts > 100 and avg_cost < 1.0:
+            return {
+                'plan_name': 'Max_20x',
+                'prompts_per_window': SUBSCRIPTION_PLANS['Max_20x']['default_prompts_per_window'],
+                'detection_method': 'high_volume_low_cost',
+                'confidence': 'high'
+            }
+        elif session_counts > 50 and avg_cost < 2.0:
+            return {
+                'plan_name': 'Max_5x',
+                'prompts_per_window': SUBSCRIPTION_PLANS['Max_5x']['default_prompts_per_window'],
+                'detection_method': 'medium_volume_moderate_cost',
+                'confidence': 'medium'
+            }
+        elif max_cost > 10.0:  # High individual costs suggest pay-per-use or lower tier
+            return {
+                'plan_name': 'Pro',
+                'prompts_per_window': SUBSCRIPTION_PLANS['Pro']['default_prompts_per_window'],
+                'detection_method': 'high_individual_costs',
+                'confidence': 'medium'
+            }
+    
+    # Fallback to Pro plan
+    return {
+        'plan_name': 'Pro',
+        'prompts_per_window': SUBSCRIPTION_PLANS['Pro']['default_prompts_per_window'],
+        'detection_method': 'pattern_analysis_fallback',
+        'confidence': 'low'
+    }
+
+
+def calculate_current_window_usage(current_time: Optional[datetime] = None) -> Dict[str, Any]:
+    """
+    Calculate usage within current 5-hour window.
+    
+    Args:
+        current_time: Current time (defaults to now)
+        
+    Returns:
+        Dictionary with current window information:
+        {
+            'window_start': datetime,
+            'window_end': datetime,
+            'hours_into_window': float,
+            'progress_percentage': float
+        }
+    """
+    if current_time is None:
+        current_time = datetime.now(UTC_TIMEZONE)
+    
+    # Calculate which 5-hour window we're in
+    hours_since_midnight = current_time.hour + current_time.minute / 60.0
+    window_index = int(hours_since_midnight / WINDOW_DURATION_HOURS)
+    
+    # Calculate window boundaries
+    window_start_hour = window_index * WINDOW_DURATION_HOURS
+    window_start = current_time.replace(hour=int(window_start_hour), 
+                                       minute=int((window_start_hour % 1) * 60), 
+                                       second=0, microsecond=0)
+    window_end = window_start + timedelta(hours=WINDOW_DURATION_HOURS)
+    
+    # Calculate progress within window
+    time_into_window = current_time - window_start
+    hours_into_window = time_into_window.total_seconds() / 3600
+    progress_percentage = (hours_into_window / WINDOW_DURATION_HOURS) * 100
+    
+    return {
+        'window_start': window_start,
+        'window_end': window_end,
+        'hours_into_window': hours_into_window,
+        'progress_percentage': min(100.0, progress_percentage)
+    }

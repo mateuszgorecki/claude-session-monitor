@@ -2,24 +2,33 @@
 
 **⚠️ macOS Application** - Developed and tested for macOS systems
 
-A Python-based real-time monitoring tool for Claude API usage, costs, and session limits. Features automatic subscription detection and displays a terminal-based dashboard with progress bars showing token consumption and time remaining in active sessions.
+A Python-based real-time monitoring tool for Claude API usage, costs, and 5-hour window limits based on Anthropic's official billing structure. Features automatic subscription plan detection and displays an elegant emoji-enhanced terminal dashboard with progress bars showing 5-hour window usage and prompt consumption.
 
 **Inspired by:** [Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor)
 
 ## Features
 
-The monitor displays:
-- **Automatic subscription detection** - intelligently detects Claude Max, Pro, or pay-per-use plans
-- **Current tokens used** in active sessions
-- **Maximum tokens reached** during the billing period
-- **Percentage of monthly limit utilized** based on detected subscription type
-- **Real-time session tracking** with time remaining
-- **Cost tracking** for current and maximum usage
-- **macOS notifications** for time warnings and inactivity alerts
-- **Anti-flicker terminal UI** for smooth monitoring experience
+### 🎯 5-Hour Window System (New!)
+The monitor now displays based on Anthropic's official billing structure:
+- **⏰ 5h Windows** - Real-time tracking of remaining 5-hour windows in your billing period
+- **🔥 Current window** - Prompt usage within the current 5-hour window
+- **📅 Started date** - Clean billing period display with days remaining
+- **💰 Cost tracking** - Streamlined monthly cost display
+
+### 🤖 Automatic Plan Detection
+- **Pro Plan ($20/mo)** - 10-40 prompts per 5h window (25 default)
+- **Max 5x Plan ($100/mo)** - 50-200 prompts per 5h window (125 default)  
+- **Max 20x Plan ($200/mo)** - 200-800 prompts per 5h window (500 default)
+- **Intelligent fallback** to legacy session display if needed
+
+### 🎨 Enhanced Interface
+- **Emoji-enhanced UI** with modern visual indicators
+- **Anti-flicker terminal display** for smooth monitoring
+- **Dynamic progress bars** showing window usage
 - **Activity sessions display** with Claude Code hooks integration
 - **Smart status detection** (ACTIVE, WAITING_FOR_USER, IDLE, INACTIVE)
 - **Audio signals** for session status changes
+- **macOS notifications** for time warnings and inactivity alerts
 
 ## Requirements
 
@@ -72,9 +81,19 @@ uv run python3 claude_client.py
    ./scripts/install_cron.sh
    ```
 
-5. **Run client (automatically detects subscription):**
+5. **Install globally for easy access:**
    ```bash
-   uv run python3 claude_client.py
+   uv tool install .  # Install ccmonitor command globally
+   ```
+
+6. **Run from anywhere:**
+   ```bash
+   ccmonitor  # 5-hour window system with automatic plan detection
+   ```
+
+   Or run locally in project directory:
+   ```bash
+   uv run python3 claude_client.py  # 5-hour window system
    ```
 
 ### Method 2: Legacy Single Script

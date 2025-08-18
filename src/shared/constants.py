@@ -23,6 +23,29 @@ DEFAULT_INACTIVITY_ALERT_MINUTES = 10
 DEFAULT_LOCAL_TIMEZONE = "Europe/Warsaw"
 DEFAULT_BILLING_START_DAY = 1
 
+# 5-Hour Window System Configuration
+WINDOW_DURATION_HOURS = 5
+SUBSCRIPTION_PLANS = {
+    "Pro": {
+        "monthly_cost": 20,
+        "prompts_per_window_min": 10,
+        "prompts_per_window_max": 40,
+        "default_prompts_per_window": 25
+    },
+    "Max_5x": {
+        "monthly_cost": 100,
+        "prompts_per_window_min": 50,
+        "prompts_per_window_max": 200,
+        "default_prompts_per_window": 125
+    },
+    "Max_20x": {
+        "monthly_cost": 200,
+        "prompts_per_window_min": 200,
+        "prompts_per_window_max": 800,
+        "default_prompts_per_window": 500
+    }
+}
+
 # File Paths
 DEFAULT_CONFIG_DIR = "~/.config/claude-monitor"
 DEFAULT_CONFIG_FILE = "config.json"
