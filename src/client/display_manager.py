@@ -7,8 +7,10 @@ from typing import Optional, Dict, Any, List
 
 try:
     from ..shared.data_models import MonitoringData, SessionData, ActivitySessionData
+    from ..shared.utils import run_ccusage_command, detect_subscription_plan_from_ccusage, calculate_current_window_usage
 except ImportError:
     from shared.data_models import MonitoringData, SessionData, ActivitySessionData
+    from shared.utils import run_ccusage_command, detect_subscription_plan_from_ccusage, calculate_current_window_usage
 
 
 class Colors:
@@ -31,14 +33,16 @@ class DisplayManager:
     with progress bars, colors, and formatting.
     """
 
-    def __init__(self, total_monthly_sessions: int = 50):
+    def __init__(self, total_monthly_sessions: int = 50, selected_plan: Optional[str] = None):
         """
         Initialize DisplayManager.
         
         Args:
             total_monthly_sessions: Expected monthly session limit for calculations
+            selected_plan: Manual plan override (Pro, Max_5x, Max_20x)
         """
         self.total_monthly_sessions = total_monthly_sessions
+        self.selected_plan = selected_plan
         self._screen_cleared = False
         self._previous_activity_sessions = {}  # Track previous session states for change detection
         self._previous_session_state = None  # Track previous session state (active/waiting)
@@ -297,22 +301,50 @@ class DisplayManager:
                 monitoring_data.billing_period_end
             )
             
-            # Detect subscription plan
-            ccusage_data = run_ccusage_command()
-            plan_info = detect_subscription_plan_from_ccusage(ccusage_data)
+            # Use manual plan if provided, otherwise detect
+            if self.selected_plan:
+                try:
+                    from ..shared.constants import SUBSCRIPTION_PLANS
+                except ImportError:
+                    try:
+                        from shared.constants import SUBSCRIPTION_PLANS
+                    except ImportError:
+                        from constants import SUBSCRIPTION_PLANS
+                        
+                plan_config = SUBSCRIPTION_PLANS.get(self.selected_plan, SUBSCRIPTION_PLANS['Pro'])
+                plan_info = {
+                    'plan_name': self.selected_plan,
+                    'prompts_per_window': plan_config['default_prompts_per_window'],
+                    'detection_method': 'manual_selection',
+                    'confidence': 'high'
+                }
+                ccusage_data = run_ccusage_command()
+            else:
+                # Detect subscription plan
+                ccusage_data = run_ccusage_command()
+                plan_info = detect_subscription_plan_from_ccusage(ccusage_data)
             
             # Calculate current window usage
             current_window = calculate_current_window_usage()
             
-            # Calculate current window prompts from sessions within the current window
+            # Calculate current window prompts from ccusage blocks within the current window
             current_window_prompts = 0
             window_start = current_window['window_start']
             window_end = current_window['window_end']
             
-            # Count sessions that started within the current 5-hour window
-            for session in monitoring_data.current_sessions:
-                if window_start <= session.start_time <= window_end:
-                    current_window_prompts += 1
+            # Count actual prompts (entries) from ccusage blocks within the current 5-hour window
+            if "blocks" in ccusage_data:
+                for block in ccusage_data["blocks"]:
+                    try:
+                        # Parse block start time
+                        if "startTime" in block:
+                            block_start = datetime.fromisoformat(block["startTime"].replace('Z', '+00:00'))
+                            # Check if block started within current window
+                            if window_start <= block_start <= window_end:
+                                # Add entries count (prompts/conversations in this block)
+                                current_window_prompts += block.get("entries", 0)
+                    except (ValueError, TypeError, KeyError):
+                        continue
             
             max_prompts_per_window = plan_info['prompts_per_window']
             

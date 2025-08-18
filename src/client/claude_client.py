@@ -221,15 +221,23 @@ class ClaudeClient:
         parser.add_argument(
             "--auto-detect",
             action="store_true",
-            default=True,
-            help="Automatically detect subscription type and configure session limits (default: enabled)"
+            default=False,
+            help="Automatically detect subscription type (overrides --plan default)"
         )
         
         parser.add_argument(
             "--no-auto-detect",
             action="store_false",
             dest="auto_detect",
-            help="Disable automatic subscription detection and use manual --sessions value"
+            help="Use manual plan selection (default behavior)"
+        )
+        
+        parser.add_argument(
+            "--plan",
+            type=str,
+            choices=["Pro", "Max_5x", "Max_20x"],
+            default="Max_5x",
+            help="Subscription plan (default: Max_5x). Options: Pro, Max_5x, Max_20x."
         )
         
         parser.add_argument(
@@ -254,7 +262,7 @@ class ClaudeClient:
             if not daemon_started:
                 print("❌ Failed to auto-start daemon, will show offline display")
         
-        # Handle auto-detection of subscription limits
+        # Handle plan selection - now plan is always set (default Max_5x)
         if args.auto_detect:
             print("🔍 Automatyczne wykrywanie subskrypcji...")
             
@@ -282,9 +290,30 @@ class ClaudeClient:
             self.total_monthly_sessions = session_limit
             self.display_manager = DisplayManager(self.total_monthly_sessions)
         else:
-            # Use manual session limit if specified
-            self.total_monthly_sessions = args.sessions
-            self.display_manager = DisplayManager(self.total_monthly_sessions)
+            # Use manual plan selection (default behavior)
+            try:
+                from ..shared.constants import SUBSCRIPTION_PLANS
+            except ImportError:
+                try:
+                    from shared.constants import SUBSCRIPTION_PLANS
+                except ImportError:
+                    from constants import SUBSCRIPTION_PLANS
+                    
+            plan_name = args.plan
+            plan_config = SUBSCRIPTION_PLANS.get(plan_name, SUBSCRIPTION_PLANS['Pro'])
+            
+            print(f"🎯 Plan wybrany: {plan_name}")
+            print(f"📊 Limity okien: {plan_config['default_prompts_per_window']} promptów/5h okno")
+            print(f"💰 Koszt miesięczny: ${plan_config['monthly_cost']}")
+            print()
+            
+            # Convert to session limit for compatibility and pass plan info
+            session_limit = 50 if plan_name == 'Pro' else 100 if plan_name == 'Max_5x' else 200
+            
+            self.total_monthly_sessions = session_limit
+            self.display_manager = DisplayManager(self.total_monthly_sessions, selected_plan=plan_name)
+            # Store plan info for DisplayManager to use
+            self.selected_plan = plan_name
         
         # Update configuration from arguments
         if args.data_file:

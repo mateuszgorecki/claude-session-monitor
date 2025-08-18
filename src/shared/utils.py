@@ -682,23 +682,37 @@ def detect_subscription_plan_from_ccusage(ccusage_data: Dict[str, Any]) -> Dict[
     if len(costs) > 0:
         avg_cost = sum(costs) / len(costs) if costs else 0
         max_cost = max(costs) if costs else 0
+        total_cost = sum(costs) if costs else 0
         
-        # High session count with low costs = higher tier subscription
-        if session_counts > 100 and avg_cost < 1.0:
+        # Analyze cost patterns more intelligently
+        # Max plans tend to have lower per-session costs due to subscription model
+        
+        # Very high usage with minimal costs = Max 20x
+        if session_counts > 150 and avg_cost < 0.5:
             return {
                 'plan_name': 'Max_20x',
                 'prompts_per_window': SUBSCRIPTION_PLANS['Max_20x']['default_prompts_per_window'],
-                'detection_method': 'high_volume_low_cost',
+                'detection_method': 'very_high_volume_minimal_cost',
                 'confidence': 'high'
             }
-        elif session_counts > 50 and avg_cost < 2.0:
+        # High usage with low average cost = Max 5x
+        elif session_counts > 40 and avg_cost < 1.5:
             return {
                 'plan_name': 'Max_5x',
                 'prompts_per_window': SUBSCRIPTION_PLANS['Max_5x']['default_prompts_per_window'],
-                'detection_method': 'medium_volume_moderate_cost',
+                'detection_method': 'high_volume_low_cost',
+                'confidence': 'high'
+            }
+        # Medium usage with reasonable costs = could be Max 5x
+        elif session_counts > 20 and total_cost > 50 and avg_cost < 3.0:
+            return {
+                'plan_name': 'Max_5x',
+                'prompts_per_window': SUBSCRIPTION_PLANS['Max_5x']['default_prompts_per_window'],
+                'detection_method': 'medium_volume_subscription_pattern',
                 'confidence': 'medium'
             }
-        elif max_cost > 10.0:  # High individual costs suggest pay-per-use or lower tier
+        # High individual session costs suggest Pro or pay-per-use
+        elif max_cost > 8.0 or avg_cost > 5.0:
             return {
                 'plan_name': 'Pro',
                 'prompts_per_window': SUBSCRIPTION_PLANS['Pro']['default_prompts_per_window'],

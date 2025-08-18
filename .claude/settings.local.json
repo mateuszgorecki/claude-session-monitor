@@ -44,7 +44,18 @@
       "Bash(python -m pytest tests/test_project_models.py::TestProjectInfo::test_create_project_info_with_git_root_and_empty_aliases -v)",
       "Bash(python -m pytest tests/test_git_resolver.py -v)",
       "Bash(ccmonitor:*)",
-      "Bash(uv tool install:*)"
+      "Bash(uv tool install:*)",
+      "Bash(timeout 3s uv run:*)",
+      "Bash(timeout 5 uv run python3 claude_client.py)",
+      "Bash(echo $HOME)",
+      "Bash(/Users/mateusz/Desktop/code/claude-session-monitor/scripts/ccusage_wrapper.sh blocks:*)",
+      "Bash(crontab:*)",
+      "Bash(timeout:*)",
+      "Bash(git reset:*)",
+      "Bash(gtimeout:*)",
+      "Bash(brew install:*)",
+      "Bash(uv tool uninstall:*)",
+      "Bash(uv build:*)"
     ],
     "deny": []
   }
