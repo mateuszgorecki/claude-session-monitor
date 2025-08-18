@@ -162,3 +162,9 @@ config.json
 cache/
 *.cache
 .cache/
+
+# Claude Code settings with user-specific paths
+.claude/settings.local.json
+
+# User-specific scripts with hardcoded paths
+scripts/*_wrapper.sh.local
