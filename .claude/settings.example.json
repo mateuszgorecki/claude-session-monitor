@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "PreToolUse": "/path/to/claude-session-monitor/hooks/activity_hook.py",
+    "Stop": "/path/to/claude-session-monitor/hooks/stop_hook.py",
+    "SubagentStop": "/path/to/claude-session-monitor/hooks/stop_hook.py"
+  }
+}

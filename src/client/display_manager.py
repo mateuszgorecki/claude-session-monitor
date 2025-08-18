@@ -304,9 +304,16 @@ class DisplayManager:
             # Calculate current window usage
             current_window = calculate_current_window_usage()
             
-            # Mock current window prompt usage (would be calculated from actual session data)
-            # For now, use a placeholder based on current sessions
-            current_window_prompts = len(monitoring_data.current_sessions)
+            # Calculate current window prompts from sessions within the current window
+            current_window_prompts = 0
+            window_start = current_window['window_start']
+            window_end = current_window['window_end']
+            
+            # Count sessions that started within the current 5-hour window
+            for session in monitoring_data.current_sessions:
+                if window_start <= session.start_time <= window_end:
+                    current_window_prompts += 1
+            
             max_prompts_per_window = plan_info['prompts_per_window']
             
             return {

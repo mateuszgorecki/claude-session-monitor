@@ -4,6 +4,8 @@ import os
 import sys
 import time
 import argparse
+import subprocess
+import threading
 from typing import Optional
 
 try:
@@ -11,7 +13,7 @@ try:
     from .display_manager import DisplayManager
     from ..shared.data_models import MonitoringData
     from ..shared.constants import APP_VERSION
-    from ..shared.utils import detect_subscription_limits
+    from ..shared.utils import detect_subscription_limits, run_ccusage_command, detect_subscription_plan_from_ccusage
 except ImportError:
     # Direct imports when run from main directory
     try:
@@ -19,14 +21,14 @@ except ImportError:
         from client.display_manager import DisplayManager
         from shared.data_models import MonitoringData
         from shared.constants import APP_VERSION
-        from shared.utils import detect_subscription_limits
+        from shared.utils import detect_subscription_limits, run_ccusage_command, detect_subscription_plan_from_ccusage
     except ImportError:
         # Fallback for different directory structures
         from data_reader import DataReader
         from display_manager import DisplayManager
         from shared.data_models import MonitoringData
         from shared.constants import APP_VERSION
-        from shared.utils import detect_subscription_limits
+        from shared.utils import detect_subscription_limits, run_ccusage_command, detect_subscription_plan_from_ccusage
 
 
 class ClaudeClient:
@@ -69,6 +71,56 @@ class ClaudeClient:
             True if daemon appears to be running, False otherwise
         """
         return self.data_reader.is_daemon_running()
+    
+    def start_daemon_background(self) -> bool:
+        """
+        Start daemon in background if not running.
+        
+        Returns:
+            True if daemon started successfully or already running, False otherwise
+        """
+        if self.check_daemon_status():
+            return True
+        
+        try:
+            # Find run_daemon.py in the project root
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
+            daemon_script = os.path.join(project_root, 'run_daemon.py')
+            
+            
+            if not os.path.exists(daemon_script):
+                print(f"❌ Daemon script not found at {daemon_script}")
+                return False
+            
+            print("🚀 Starting daemon in background...")
+            
+            # Start daemon in background using subprocess
+            # Use uv run to ensure proper environment
+            process = subprocess.Popen(
+                ['uv', 'run', 'python3', daemon_script],
+                cwd=project_root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True  # Detach from parent process
+            )
+            
+            # Wait a moment for daemon to start
+            time.sleep(2)
+            
+            # Check if daemon is now running
+            for attempt in range(10):  # Wait up to 10 seconds
+                if self.check_daemon_status():
+                    print("✅ Daemon started successfully!")
+                    return True
+                time.sleep(1)
+            
+            print("⚠️ Daemon may be starting, continuing...")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to start daemon: {e}")
+            return False
 
     def get_monitoring_data(self) -> Optional[MonitoringData]:
         """
@@ -195,18 +247,39 @@ class ClaudeClient:
         Args:
             args: Parsed command line arguments
         """
+        # Try to auto-start daemon if not running
+        if not self.check_daemon_status():
+            print("🔍 Daemon not detected, attempting to start...")
+            daemon_started = self.start_daemon_background()
+            if not daemon_started:
+                print("❌ Failed to auto-start daemon, will show offline display")
+        
         # Handle auto-detection of subscription limits
         if args.auto_detect:
             print("🔍 Automatyczne wykrywanie subskrypcji...")
-            detection_result = detect_subscription_limits()
             
-            print(f"✅ Wykryto: {detection_result['subscription_type']}")
-            print(f"📊 Limity sesji: {detection_result['total_monthly_sessions']}")
-            print(f"🔬 Metoda: {detection_result['detection_method']}")
-            print(f"🎯 Pewność: {detection_result['confidence']}")
+            # Use new ccusage-based plan detection
+            ccusage_data = run_ccusage_command()
+            plan_info = detect_subscription_plan_from_ccusage(ccusage_data)
+            
+            # Convert plan to old format for compatibility
+            if plan_info['plan_name'] == 'Max_20x':
+                subscription_type = 'claude_max_20x'
+                session_limit = 200
+            elif plan_info['plan_name'] == 'Max_5x':
+                subscription_type = 'claude_max_5x'
+                session_limit = 100
+            else:  # Pro or fallback
+                subscription_type = 'claude_pro'
+                session_limit = 50
+            
+            print(f"✅ Wykryto: {plan_info['plan_name']}")
+            print(f"📊 Limity okien: {plan_info['prompts_per_window']} promptów/5h okno")
+            print(f"🔬 Metoda: {plan_info['detection_method']}")
+            print(f"🎯 Pewność: {plan_info['confidence']}")
             print()
             
-            self.total_monthly_sessions = detection_result['total_monthly_sessions']
+            self.total_monthly_sessions = session_limit
             self.display_manager = DisplayManager(self.total_monthly_sessions)
         else:
             # Use manual session limit if specified
