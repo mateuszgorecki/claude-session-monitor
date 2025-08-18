@@ -11,11 +11,22 @@ try:
     from .display_manager import DisplayManager
     from ..shared.data_models import MonitoringData
     from ..shared.constants import APP_VERSION
+    from ..shared.utils import detect_subscription_limits
 except ImportError:
-    from data_reader import DataReader
-    from display_manager import DisplayManager
-    from shared.data_models import MonitoringData
-    from shared.constants import APP_VERSION
+    # Direct imports when run from main directory
+    try:
+        from client.data_reader import DataReader
+        from client.display_manager import DisplayManager
+        from shared.data_models import MonitoringData
+        from shared.constants import APP_VERSION
+        from shared.utils import detect_subscription_limits
+    except ImportError:
+        # Fallback for different directory structures
+        from data_reader import DataReader
+        from display_manager import DisplayManager
+        from shared.data_models import MonitoringData
+        from shared.constants import APP_VERSION
+        from shared.utils import detect_subscription_limits
 
 
 class ClaudeClient:
@@ -149,6 +160,27 @@ class ClaudeClient:
         )
         
         parser.add_argument(
+            "--sessions",
+            type=int,
+            default=50,
+            help="Total monthly sessions limit (default: 50 for Claude Max)"
+        )
+        
+        parser.add_argument(
+            "--auto-detect",
+            action="store_true",
+            default=True,
+            help="Automatically detect subscription type and configure session limits (default: enabled)"
+        )
+        
+        parser.add_argument(
+            "--no-auto-detect",
+            action="store_false",
+            dest="auto_detect",
+            help="Disable automatic subscription detection and use manual --sessions value"
+        )
+        
+        parser.add_argument(
             "--version",
             action="version",
             version=f"Claude Monitor Client {APP_VERSION}"
@@ -163,6 +195,24 @@ class ClaudeClient:
         Args:
             args: Parsed command line arguments
         """
+        # Handle auto-detection of subscription limits
+        if args.auto_detect:
+            print("🔍 Automatyczne wykrywanie subskrypcji...")
+            detection_result = detect_subscription_limits()
+            
+            print(f"✅ Wykryto: {detection_result['subscription_type']}")
+            print(f"📊 Limity sesji: {detection_result['total_monthly_sessions']}")
+            print(f"🔬 Metoda: {detection_result['detection_method']}")
+            print(f"🎯 Pewność: {detection_result['confidence']}")
+            print()
+            
+            self.total_monthly_sessions = detection_result['total_monthly_sessions']
+            self.display_manager = DisplayManager(self.total_monthly_sessions)
+        else:
+            # Use manual session limit if specified
+            self.total_monthly_sessions = args.sessions
+            self.display_manager = DisplayManager(self.total_monthly_sessions)
+        
         # Update configuration from arguments
         if args.data_file:
             self.data_file_path = args.data_file

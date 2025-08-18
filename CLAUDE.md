@@ -66,14 +66,25 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 ### Package Management
 - **Python Package Manager**: Uses `uv` instead of pip for dependency management
 - **Virtual Environment**: `uv venv` and `uv pip install`
+- **Global Installation**: `uv tool install .` to install `ccmonitor` command globally
 - **Testing**: `uv run python -m pytest` (308 tests total including integration tests)
 
 ### Running the System
 
 ```bash
-# Daemon + Client Architecture (Recommended)
+# Global Installation (Recommended)
+uv tool install .  # Install ccmonitor command globally
+ccmonitor  # Run with automatic subscription detection (default)
+ccmonitor --no-auto-detect --sessions 50  # Use manual session limits
+
+# Daemon + Client Architecture 
 ./scripts/install_cron.sh  # Install daemon service via cron
-uv run python3 claude_client.py  # Run client
+uv run python3 claude_client.py  # Run client with auto-detection (default)
+uv run python3 claude_client.py --no-auto-detect --sessions 100  # Manual limits
+
+# Daemon (auto-detection enabled by default)
+uv run python3 run_daemon.py  # With automatic subscription detection
+uv run python3 run_daemon.py --no-auto-detect --sessions 75  # Manual limits
 
 # Legacy monolithic mode
 python3 claude_monitor.py
@@ -205,6 +216,15 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Memory Efficiency**: Prevents large hook log files from consuming excessive disk space
 - **Performance Optimization**: Reduces file I/O overhead for large activity logs
 
+### Subscription Auto-Detection (Default Behavior)
+- **Automatic Detection**: Analyzes ccusage data patterns to determine subscription type (enabled by default)
+- **Pattern Analysis**: Examines session durations, cost structures, and usage patterns
+- **Multiple Subscription Support**: Handles Claude Max (50 sessions), Pro Enterprise (100+), and pay-per-use (1000+ limit)
+- **Detection Methods**: Long session analysis, cost structure analysis, usage pattern recognition
+- **Confidence Levels**: High/medium/low confidence ratings based on data quality
+- **Fallback Strategy**: Defaults to Claude Max (50 sessions) when detection fails
+- **CLI Control**: `--no-auto-detect` flag to disable and use manual `--sessions` values
+
 ### Recent Enhancements (Phase 6)
 - **Hook Log Management**: Automatic compression system prevents unbounded file growth
 - **Event Compression**: Session events limited to 20 per session with intelligent compression
@@ -215,3 +235,4 @@ cp claude_widget.js [Scriptable Scripts folder]
 - **Error Resilience**: Enhanced error handling and graceful degradation throughout the system
 - **Test Coverage**: Expanded test suite from 87 to 308 tests with integration and lifecycle coverage
 - **Project Name Caching System**: Complete 6-phase implementation with intelligent git repository detection, cache-first resolution, adaptive learning, performance metrics, memory management, and comprehensive E2E integration testing
+- **Subscription Auto-Detection**: Intelligent subscription type detection with automatic session limit configuration

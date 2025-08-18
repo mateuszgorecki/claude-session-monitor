@@ -79,7 +79,7 @@ chmod +x hooks/stop_hook.py
 #   }
 # }
 
-# 7. Run client
+# 7. Run client (auto-detects subscription by default)
 uv run python3 claude_client.py
 ```
 
@@ -104,7 +104,7 @@ uv run python3 claude_client.py
    ./scripts/install_cron.sh
    ```
 
-5. **Run client:**
+5. **Run client (automatically detects subscription):**
    ```bash
    uv run python3 claude_client.py
    ```
@@ -131,9 +131,10 @@ brew install terminal-notifier
 ## What It Shows
 
 The monitor displays:
+- **Automatic subscription detection** - intelligently detects Claude Max, Pro, or pay-per-use plans
 - **Current tokens used** in active sessions
 - **Maximum tokens reached** during the billing period
-- **Percentage of monthly limit utilized**
+- **Percentage of monthly limit utilized** based on detected subscription type
 - **Real-time session tracking** with time remaining
 - **Cost tracking** for current and maximum usage
 - **macOS notifications** for time warnings and inactivity alerts
@@ -257,7 +258,7 @@ For enhanced monitoring of active Claude Code sessions, you can configure Claude
 
 ### 🚀 Recommended: Auto-Installation
 ```bash
-# Install daemon service and run client
+# Install daemon service and run client (auto-detects subscription)
 ./scripts/install_cron.sh
 uv run python3 claude_client.py
 ```
@@ -266,18 +267,24 @@ uv run python3 claude_client.py
 
 **Terminal 1 - Start Daemon:**
 ```bash
-uv run python3 run_daemon.py --start-day 15  # Your billing start day (1-31)
+uv run python3 run_daemon.py --start-day 15  # Auto-detects subscription, custom billing day
 ```
 
 **Terminal 2 - Start Client:**
 ```bash
-uv run python3 claude_client.py
+uv run python3 claude_client.py  # Auto-detects subscription type
 ```
 
 ### ⚙️ Configuration Options
 ```bash
-# Daemon with custom settings
-uv run python3 run_daemon.py --start-day 15 --sessions 100 --time-alert 45
+# Daemon with auto-detection (default) and custom settings
+uv run python3 run_daemon.py --start-day 15 --time-alert 45
+
+# Daemon with manual session limits (disable auto-detection)
+uv run python3 run_daemon.py --no-auto-detect --sessions 100 --start-day 15
+
+# Client with manual session limits
+uv run python3 claude_client.py --no-auto-detect --sessions 50
 
 # Check if daemon is running
 ps aux | grep claude_daemon

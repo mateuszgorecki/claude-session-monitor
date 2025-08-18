@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from daemon.claude_daemon import ClaudeDaemon
 from shared.data_models import ConfigData
+from shared.utils import detect_subscription_limits
 
 
 def signal_handler(signum, frame):
@@ -41,6 +42,10 @@ def main():
                        help='Alert bezczynności w minutach (domyślnie: 10)')
     parser.add_argument('--sessions', type=int, default=50,
                        help='Maksymalne sesje miesięczne (domyślnie: 50)')
+    parser.add_argument('--auto-detect', action='store_true', default=True,
+                       help='Automatycznie wykryj typ subskrypcji i dostosuj limity (domyślnie: włączone)')
+    parser.add_argument('--no-auto-detect', action='store_false', dest='auto_detect',
+                       help='Wyłącz automatyczne wykrywanie i użyj ręcznej wartości --sessions')
     parser.add_argument('--timezone', type=str, default="Europe/Warsaw",
                        help='Strefa czasowa (domyślnie: Europe/Warsaw)')
     
@@ -55,13 +60,27 @@ def main():
         print("❌ Interwał musi być większy niż 0 sekund")
         return 1
     
+    # Handle auto-detection of subscription limits
+    sessions_limit = args.sessions
+    if args.auto_detect:
+        print("🔍 Automatyczne wykrywanie subskrypcji...")
+        detection_result = detect_subscription_limits()
+        
+        print(f"✅ Wykryto: {detection_result['subscription_type']}")
+        print(f"📊 Limity sesji: {detection_result['total_monthly_sessions']}")
+        print(f"🔬 Metoda: {detection_result['detection_method']}")
+        print(f"🎯 Pewność: {detection_result['confidence']}")
+        print()
+        
+        sessions_limit = detection_result['total_monthly_sessions']
+    
     # Create configuration
     config = ConfigData(
         ccusage_fetch_interval_seconds=args.interval,
         time_remaining_alert_minutes=args.time_alert,
         inactivity_alert_minutes=args.inactivity_alert,
         billing_start_day=args.start_day,
-        total_monthly_sessions=args.sessions,
+        total_monthly_sessions=sessions_limit,
         local_timezone=args.timezone
     )
     

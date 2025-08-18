@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Application Information
 APP_NAME = "Claude Session Monitor"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 APP_AUTHOR = "Claude Monitor Team"
 
 # Daemon Version Information  

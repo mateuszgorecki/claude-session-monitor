@@ -463,3 +463,141 @@ def get_project_cache_file_path() -> str:
     """
     config_dir = os.path.expanduser(DEFAULT_CONFIG_DIR)
     return os.path.join(config_dir, DEFAULT_PROJECT_CACHE_FILE)
+
+
+def detect_subscription_limits() -> Dict[str, Any]:
+    """
+    Automatically detect subscription limits by analyzing ccusage output.
+    
+    This function analyzes recent ccusage data to determine the subscription type
+    and automatically configure appropriate session limits.
+    
+    Returns:
+        Dictionary with detected limits:
+        {
+            'total_monthly_sessions': int,
+            'subscription_type': str,
+            'detection_method': str,
+            'confidence': str
+        }
+    """
+    try:
+        # Get recent data (last 60 days) to analyze patterns
+        ccusage_data = run_ccusage_command()
+        
+        if "error" in ccusage_data or not ccusage_data.get("blocks"):
+            return {
+                'total_monthly_sessions': 50,  # Default fallback
+                'subscription_type': 'unknown',
+                'detection_method': 'default_fallback',
+                'confidence': 'low'
+            }
+        
+        blocks = ccusage_data["blocks"]
+        
+        # Analyze session patterns
+        session_durations = []
+        max_tokens_seen = 0
+        cost_patterns = []
+        
+        for block in blocks:
+            # Analyze session duration patterns
+            if "startedAt" in block and "endedAt" in block:
+                try:
+                    start_time = datetime.fromisoformat(block["startedAt"].replace('Z', '+00:00'))
+                    end_time = datetime.fromisoformat(block["endedAt"].replace('Z', '+00:00'))
+                    duration_hours = (end_time - start_time).total_seconds() / 3600
+                    session_durations.append(duration_hours)
+                except (ValueError, TypeError):
+                    continue
+            
+            # Analyze token patterns
+            token_counts = block.get("tokenCounts", {})
+            total_tokens = token_counts.get("inputTokens", 0) + token_counts.get("outputTokens", 0)
+            max_tokens_seen = max(max_tokens_seen, total_tokens)
+            
+            # Analyze cost patterns
+            if "costUSD" in block and block["costUSD"] > 0:
+                cost_patterns.append(block["costUSD"])
+        
+        # Detection logic based on patterns
+        detected_type = _analyze_subscription_patterns(session_durations, cost_patterns, max_tokens_seen)
+        
+        return detected_type
+        
+    except Exception as e:
+        # Fallback to default on any error
+        return {
+            'total_monthly_sessions': 50,
+            'subscription_type': 'unknown',
+            'detection_method': f'error_fallback: {str(e)}',
+            'confidence': 'low'
+        }
+
+
+def _analyze_subscription_patterns(session_durations: List[float], 
+                                  cost_patterns: List[float], 
+                                  max_tokens: int) -> Dict[str, Any]:
+    """
+    Analyze patterns to detect subscription type.
+    
+    Args:
+        session_durations: List of session durations in hours
+        cost_patterns: List of session costs
+        max_tokens: Maximum tokens seen in a session
+        
+    Returns:
+        Detection result dictionary
+    """
+    # Count sessions approaching 5-hour limit (Claude Max pattern)
+    long_sessions = [d for d in session_durations if d > 4.5]  # Close to 5-hour limit
+    
+    # Check for zero-cost sessions (indicates subscription, not pay-per-use)
+    zero_cost_sessions = len([c for c in cost_patterns if c == 0])
+    paid_sessions = len([c for c in cost_patterns if c > 0])
+    
+    # Detection logic
+    if zero_cost_sessions > paid_sessions:
+        # Subscription model detected
+        if len(long_sessions) > 2:  # Multiple long sessions indicate 5-hour limit
+            return {
+                'total_monthly_sessions': 50,
+                'subscription_type': 'claude_max',
+                'detection_method': 'pattern_analysis_long_sessions',
+                'confidence': 'high'
+            }
+        else:
+            # Could be Pro or different limit structure
+            # Analyze monthly session count if we have enough data
+            if len(session_durations) >= 10:  # Enough data to estimate
+                # Rough estimate based on usage patterns
+                if len(session_durations) > 30:  # High usage suggests higher limit
+                    return {
+                        'total_monthly_sessions': 100,
+                        'subscription_type': 'claude_pro_enterprise',
+                        'detection_method': 'pattern_analysis_high_usage',
+                        'confidence': 'medium'
+                    }
+                else:
+                    return {
+                        'total_monthly_sessions': 50,
+                        'subscription_type': 'claude_max',
+                        'detection_method': 'pattern_analysis_moderate_usage',
+                        'confidence': 'medium'
+                    }
+            else:
+                # Insufficient data, use conservative default
+                return {
+                    'total_monthly_sessions': 50,
+                    'subscription_type': 'claude_max_assumed',
+                    'detection_method': 'pattern_analysis_insufficient_data',
+                    'confidence': 'low'
+                }
+    else:
+        # Pay-per-use detected
+        return {
+            'total_monthly_sessions': 1000,  # High limit for pay-per-use
+            'subscription_type': 'pay_per_use',
+            'detection_method': 'pattern_analysis_cost_structure',
+            'confidence': 'high'
+        }
