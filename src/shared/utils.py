@@ -729,6 +729,236 @@ def detect_subscription_plan_from_ccusage(ccusage_data: Dict[str, Any]) -> Dict[
     }
 
 
+def detect_model_from_ccusage_block(block: Dict[str, Any]) -> str:
+    """
+    Detect which model was used in a ccusage block.
+    
+    Args:
+        block: Single block from ccusage output
+        
+    Returns:
+        Model name: 'sonnet' or 'opus' (defaults to 'sonnet')
+    """
+    # Look for model indicators in the block
+    # This is a simplified version - could be enhanced based on actual ccusage structure
+    model_id = block.get('modelId', '').lower()
+    
+    if 'opus' in model_id:
+        return 'opus'
+    else:
+        return 'sonnet'  # Default to Sonnet
+
+
+def count_user_prompts_from_ccusage(ccusage_data: Dict[str, Any], 
+                                   window_start: datetime, 
+                                   window_end: datetime) -> int:
+    """
+    Count user prompts (not responses) from ccusage data within time window.
+    
+    Args:
+        ccusage_data: Raw ccusage command output
+        window_start: Start of time window
+        window_end: End of time window
+        
+    Returns:
+        Number of user prompts in the window
+    """
+    if "error" in ccusage_data or not ccusage_data.get("blocks"):
+        return 0
+    
+    user_prompts = 0
+    
+    for block in ccusage_data["blocks"]:
+        try:
+            if "startTime" in block:
+                block_start = datetime.fromisoformat(block["startTime"].replace('Z', '+00:00'))
+                if window_start <= block_start <= window_end:
+                    # Count entries as user prompts (ccusage entries represent user interactions)
+                    user_prompts += block.get("entries", 0)
+        except (ValueError, TypeError, KeyError):
+            continue
+    
+    return user_prompts
+
+
+def calculate_usage_intensity_from_ccusage(ccusage_data: Dict[str, Any], 
+                                          week_start: datetime,
+                                          week_end: datetime,
+                                          window_start: datetime, 
+                                          window_end: datetime) -> Dict[str, Any]:
+    """
+    Calculate usage intensity metrics from ccusage data.
+    
+    Args:
+        ccusage_data: Raw ccusage command output
+        week_start: Start of current week
+        week_end: End of current week
+        window_start: Start of current 5h window
+        window_end: End of current 5h window
+        
+    Returns:
+        Dictionary with intensity metrics:
+        {
+            'sonnet_hours_week': float,
+            'opus_hours_week': float,
+            'user_prompts_window': int,
+            'user_prompts_week': int,
+            'parallel_intensity': float,
+            'active_sessions': int
+        }
+    """
+    if "error" in ccusage_data or not ccusage_data.get("blocks"):
+        return {
+            'sonnet_hours_week': 0.0,
+            'opus_hours_week': 0.0,
+            'user_prompts_window': 0,
+            'user_prompts_week': 0,
+            'parallel_intensity': 1.0,
+            'active_sessions': 0
+        }
+    
+    sonnet_hours = 0.0
+    opus_hours = 0.0
+    user_prompts_week = 0
+    user_prompts_window = 0
+    active_sessions_set = set()
+    
+    for block in ccusage_data["blocks"]:
+        try:
+            # Parse timestamps
+            start_time = None
+            end_time = None
+            
+            if "startTime" in block:
+                start_time = datetime.fromisoformat(block["startTime"].replace('Z', '+00:00'))
+            if "endTime" in block:
+                end_time = datetime.fromisoformat(block["endTime"].replace('Z', '+00:00'))
+            
+            if not start_time:
+                continue
+            
+            # Detect model
+            model = detect_model_from_ccusage_block(block)
+            
+            # Calculate session duration
+            if end_time:
+                duration_hours = (end_time - start_time).total_seconds() / 3600
+            else:
+                # Active session - estimate based on typical usage
+                duration_hours = 0.5  # Conservative estimate
+                
+            # Count weekly usage
+            if week_start <= start_time <= week_end:
+                if model == 'opus':
+                    opus_hours += duration_hours
+                else:
+                    sonnet_hours += duration_hours
+                
+                # Count user prompts for the week
+                user_prompts_week += block.get("entries", 0)
+                
+                # Track active sessions
+                session_id = block.get("sessionId", f"session_{start_time.timestamp()}")
+                if not end_time:  # Active session
+                    active_sessions_set.add(session_id)
+            
+            # Count prompts in current window
+            if window_start <= start_time <= window_end:
+                user_prompts_window += block.get("entries", 0)
+                
+        except (ValueError, TypeError, KeyError) as e:
+            continue
+    
+    # Calculate parallel intensity (rough estimation)
+    active_sessions = len(active_sessions_set)
+    if active_sessions == 0:
+        parallel_intensity = 1.0
+    else:
+        # Simple intensity calculation - could be more sophisticated
+        total_usage_hours = sonnet_hours + opus_hours
+        week_duration_hours = (week_end - week_start).total_seconds() / 3600
+        
+        if week_duration_hours > 0:
+            parallel_intensity = min(total_usage_hours / week_duration_hours, 5.0)  # Cap at 5x
+        else:
+            parallel_intensity = 1.0
+    
+    return {
+        'sonnet_hours_week': sonnet_hours,
+        'opus_hours_week': opus_hours,
+        'user_prompts_window': user_prompts_window,
+        'user_prompts_week': user_prompts_week,
+        'parallel_intensity': max(1.0, parallel_intensity),
+        'active_sessions': active_sessions
+    }
+
+
+def calculate_sustainability_status(plan_name: str, usage_metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Calculate sustainability status based on current usage vs limits.
+    
+    Args:
+        plan_name: Subscription plan name (Pro, Max_5x, Max_20x)
+        usage_metrics: Current usage metrics
+        
+    Returns:
+        Dictionary with sustainability information:
+        {
+            'status': str,  # 'excellent', 'good', 'moderate', 'warning', 'critical'
+            'message': str,
+            'sonnet_utilization': float,  # 0-1
+            'opus_utilization': float,    # 0-1 
+            'can_increase_usage': bool
+        }
+    """
+    from .constants import SUBSCRIPTION_PLANS, SUSTAINABILITY_THRESHOLD
+    
+    if plan_name not in SUBSCRIPTION_PLANS:
+        plan_name = 'Pro'  # Fallback
+    
+    plan_config = SUBSCRIPTION_PLANS[plan_name]
+    
+    # Calculate utilization ratios
+    sonnet_utilization = usage_metrics['sonnet_hours_week'] / plan_config['sonnet_weekly_avg']
+    opus_utilization = 0.0
+    if plan_config['has_opus'] and plan_config['opus_weekly_avg'] > 0:
+        opus_utilization = usage_metrics['opus_hours_week'] / plan_config['opus_weekly_avg']
+    
+    # Overall utilization (max of the two)
+    overall_utilization = max(sonnet_utilization, opus_utilization)
+    
+    # Determine status
+    if overall_utilization < 0.3:
+        status = 'excellent'
+        message = 'Excellent - plenty of capacity remaining'
+        can_increase = True
+    elif overall_utilization < 0.6:
+        status = 'good'
+        message = 'Good - sustainable pace with room to grow'
+        can_increase = True
+    elif overall_utilization < SUSTAINABILITY_THRESHOLD:
+        status = 'moderate'
+        message = 'Moderate usage - approaching optimal level'
+        can_increase = True
+    elif overall_utilization < 1.0:
+        status = 'warning'
+        message = 'Warning - high usage, monitor closely'
+        can_increase = False
+    else:
+        status = 'critical'
+        message = 'Critical - usage above recommended limits'
+        can_increase = False
+    
+    return {
+        'status': status,
+        'message': message,
+        'sonnet_utilization': sonnet_utilization,
+        'opus_utilization': opus_utilization,
+        'overall_utilization': overall_utilization,
+        'can_increase_usage': can_increase
+    }
+
+
 def calculate_current_window_usage(current_time: Optional[datetime] = None) -> Dict[str, Any]:
     """
     Calculate usage within current 5-hour window.

@@ -55,7 +55,9 @@
       "Bash(gtimeout:*)",
       "Bash(brew install:*)",
       "Bash(uv tool uninstall:*)",
-      "Bash(uv build:*)"
+      "Bash(uv build:*)",
+      "Bash(unzip:*)",
+      "Bash(uv tool:*)"
     ],
     "deny": []
   }

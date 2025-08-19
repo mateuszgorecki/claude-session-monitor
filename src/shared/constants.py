@@ -25,26 +25,57 @@ DEFAULT_BILLING_START_DAY = 1
 
 # 5-Hour Window System Configuration
 WINDOW_DURATION_HOURS = 5
+
+# Subscription Plans with Official Anthropic Limits
 SUBSCRIPTION_PLANS = {
     "Pro": {
         "monthly_cost": 20,
         "prompts_per_window_min": 10,
         "prompts_per_window_max": 40,
-        "default_prompts_per_window": 25
+        "default_prompts_per_window": 25,
+        # Weekly usage time limits (hours)
+        "sonnet_weekly_min": 40,
+        "sonnet_weekly_max": 80,
+        "sonnet_weekly_avg": 60,
+        "opus_weekly_min": 0,
+        "opus_weekly_max": 0,  # No Opus access on Pro
+        "opus_weekly_avg": 0,
+        "has_opus": False
     },
     "Max_5x": {
         "monthly_cost": 100,
         "prompts_per_window_min": 50,
         "prompts_per_window_max": 200,
-        "default_prompts_per_window": 125
+        "default_prompts_per_window": 125,
+        # Weekly usage time limits (hours)
+        "sonnet_weekly_min": 140,
+        "sonnet_weekly_max": 280,
+        "sonnet_weekly_avg": 210,
+        "opus_weekly_min": 15,
+        "opus_weekly_max": 35,
+        "opus_weekly_avg": 25,
+        "has_opus": True
     },
     "Max_20x": {
         "monthly_cost": 200,
         "prompts_per_window_min": 200,
         "prompts_per_window_max": 800,
-        "default_prompts_per_window": 500
+        "default_prompts_per_window": 500,
+        # Weekly usage time limits (hours)
+        "sonnet_weekly_min": 240,
+        "sonnet_weekly_max": 480,
+        "sonnet_weekly_avg": 360,
+        "opus_weekly_min": 24,
+        "opus_weekly_max": 40,
+        "opus_weekly_avg": 32,
+        "has_opus": True
     }
 }
+
+# Usage Intensity Calculation Constants
+HOURS_PER_WEEK = 168  # 7 * 24 hours
+PARALLEL_INTENSITY_THRESHOLD = 1.5  # Above this = high intensity usage
+SUSTAINABILITY_THRESHOLD = 0.8  # 80% budget utilization for sustainability warning
 
 # File Paths
 DEFAULT_CONFIG_DIR = "~/.config/claude-monitor"

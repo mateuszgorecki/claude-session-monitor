@@ -12,7 +12,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus, ActivitySessionData
+from shared.data_models import SessionData, MonitoringData, ConfigData, ErrorStatus, ActivitySessionData, UsageIntensityData
 from shared.constants import DAEMON_VERSION
 from .subprocess_pool import run_ccusage_pooled
 from .ccusage_runner import run_ccusage_direct
@@ -145,6 +145,9 @@ class DataCollector:
             # Collect activity sessions from hooks
             activity_sessions = self._collect_activity_sessions()
             
+            # Calculate usage intensity data
+            usage_intensity = self._calculate_usage_intensity(data, billing_period_start, billing_period_end)
+            
             return MonitoringData(
                 current_sessions=sessions,
                 total_sessions_this_month=len(sessions),
@@ -154,7 +157,8 @@ class DataCollector:
                 billing_period_start=billing_period_start,
                 billing_period_end=billing_period_end,
                 daemon_version=DAEMON_VERSION,
-                activity_sessions=activity_sessions
+                activity_sessions=activity_sessions,
+                usage_intensity=usage_intensity
             )
             
         except subprocess.TimeoutExpired:
@@ -584,6 +588,67 @@ class DataCollector:
             except Exception:
                 pass
             return 35000
+    
+    def _calculate_usage_intensity(self, ccusage_data: Dict[str, Any], 
+                                   billing_period_start: datetime, 
+                                   billing_period_end: datetime) -> Optional[UsageIntensityData]:
+        """
+        Calculate usage intensity metrics from ccusage data.
+        
+        Args:
+            ccusage_data: Raw ccusage output
+            billing_period_start: Start of billing period
+            billing_period_end: End of billing period
+            
+        Returns:
+            UsageIntensityData or None if calculation fails
+        """
+        try:
+            from shared.utils import (
+                calculate_usage_intensity_from_ccusage, 
+                calculate_current_window_usage
+            )
+            
+            # Calculate week boundaries
+            now = datetime.now(timezone.utc)
+            # Start of week is Monday
+            days_since_monday = now.weekday()
+            week_start = now - timedelta(days=days_since_monday, hours=now.hour, minutes=now.minute, seconds=now.second, microseconds=now.microsecond)
+            week_end = week_start + timedelta(days=7)
+            
+            # Calculate current window boundaries
+            window_info = calculate_current_window_usage(now)
+            window_start = window_info['window_start']
+            window_end = window_info['window_end']
+            
+            # Calculate intensity metrics
+            intensity_metrics = calculate_usage_intensity_from_ccusage(
+                ccusage_data,
+                week_start,
+                week_end,
+                window_start,
+                window_end
+            )
+            
+            # Create UsageIntensityData object
+            usage_intensity = UsageIntensityData(
+                active_sessions_count=intensity_metrics['active_sessions'],
+                parallel_intensity=intensity_metrics['parallel_intensity'],
+                sonnet_hours_used=intensity_metrics['sonnet_hours_week'],
+                opus_hours_used=intensity_metrics['opus_hours_week'],
+                user_prompts_current_window=intensity_metrics['user_prompts_window'],
+                user_prompts_this_week=intensity_metrics['user_prompts_week'],
+                real_time_elapsed=(now - week_start).total_seconds() / 3600,  # Hours since week start
+                usage_time_accumulated=intensity_metrics['sonnet_hours_week'] + intensity_metrics['opus_hours_week'],
+                week_start=week_start,
+                week_end=week_end
+            )
+            
+            return usage_intensity
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate usage intensity: {e}")
+            return None
     
     def _collect_activity_sessions(self) -> List[ActivitySessionData]:
         """Collect activity sessions from hooks.

@@ -69,6 +69,14 @@ This is a Python-based Claude API token usage monitor that provides real-time tr
 - **Global Installation**: `uv tool install .` to install `ccmonitor` command globally
 - **Testing**: `uv run python -m pytest` (308 tests total including integration tests)
 
+### Development Installation Notes
+- **uv Caching Behavior**: `uv tool install .` caches builds based on version in `pyproject.toml`
+- **For Development Changes**, use one of these approaches:
+  - **Version Bump**: Increment version in `pyproject.toml` before installing
+  - **Force Rebuild**: `uv build --wheel && uv tool install dist/claude_token_monitor-X.X.X-py3-none-any.whl`
+  - **Development Mode**: `uv tool install --editable .` for auto-reload during development
+  - **Clean Install**: `uv tool uninstall claude-token-monitor && uv tool install .`
+
 ### Running the System
 
 ```bash

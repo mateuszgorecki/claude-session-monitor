@@ -408,54 +408,44 @@ class DisplayManager:
             monitoring_data: Current monitoring data
             active_session: The active session to display
         """
-        # Calculate window statistics
-        window_stats = self.calculate_window_stats(monitoring_data)
+        # Use new intensity-aware display
+        self.render_intensity_usage_display(monitoring_data)
         
-        if not window_stats.get('is_fallback'):
-            # Display 5-hour window information
-            remaining_windows = window_stats['remaining_windows']
-            total_windows = window_stats['total_windows']
-            
-            # Calculate percentage for progress bar
-            window_percentage = ((total_windows - remaining_windows) / total_windows * 100) if total_windows > 0 else 0
-            progress_bar = self.create_progress_bar(window_percentage)
-            
-            print(f"⏰ 5h Windows: {Colors.GREEN}{progress_bar}{Colors.ENDC} {remaining_windows}/{total_windows} remaining")
-            
-            # Current window information
-            current_prompts = window_stats['current_window_prompts']
-            max_prompts = window_stats['max_prompts_per_window']
-            plan_name = window_stats['plan_name'].replace('_', ' ')
-            
-            print(f"🔥 Current window: {current_prompts}/{max_prompts} prompts used ({plan_name} Plan)")
-            
-            # Show subscription period start
-            period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
-            days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
-            print(f"📅 Started: {period_start} ({days_remaining} days remaining)")
+        # Current session status
+        print(f"{Colors.BOLD}{Colors.GREEN}●  ACTIVE SESSION{Colors.ENDC}")
+        
+        # Session info
+        session_id_display = active_session.session_id[:8] if len(active_session.session_id) > 8 else active_session.session_id
+        print(f"{Colors.BOLD}Session ID:{Colors.ENDC}    {session_id_display}...")
+        
+        # Calculate elapsed time with timezone handling
+        current_time = datetime.now(timezone.utc)
+        
+        # Handle both timezone-aware and timezone-naive start_time
+        if active_session.start_time.tzinfo is None:
+            # Assume UTC if no timezone info
+            start_time_utc = active_session.start_time.replace(tzinfo=timezone.utc)
         else:
-            # Fallback to original token/time display
-            # Calculate token usage percentage
-            token_usage_percent = self.calculate_token_usage_percentage(
-                active_session.total_tokens, monitoring_data.max_tokens_per_session
-            )
-            
-            # Calculate time progress
-            current_time = datetime.now(timezone.utc)
-            time_progress_percent = self.calculate_time_progress_percentage(
-                active_session.start_time, active_session.end_time, current_time
-            )
-            
-            # Calculate time remaining
-            time_remaining = active_session.end_time - current_time
-            
-            # Display progress bars (same format as claude_monitor.py)
-            print(f"Token Usage:   {Colors.GREEN}{self.create_progress_bar(token_usage_percent)}{Colors.ENDC} {token_usage_percent:.1f}%")
-            print(f"Time to Reset: {Colors.BLUE}{self.create_progress_bar(time_progress_percent)}{Colors.ENDC} {self.format_timedelta(time_remaining)}")
-            
-            # Display session details
-            print(f"\n{Colors.BOLD}Tokens:{Colors.ENDC}        {active_session.total_tokens:,} / ~{monitoring_data.max_tokens_per_session:,}")
-            print(f"{Colors.BOLD}Session Cost:{Colors.ENDC}  ${active_session.cost_usd:.2f}\n")
+            start_time_utc = active_session.start_time.astimezone(timezone.utc)
+        
+        elapsed = current_time - start_time_utc
+        elapsed_formatted = self.format_timedelta(elapsed)
+        
+        print(f"{Colors.BOLD}Elapsed Time:{Colors.ENDC} {elapsed_formatted}")
+        
+        # Calculate remaining time based on 5-hour window
+        time_limit = timedelta(hours=5)
+        time_remaining = time_limit - elapsed
+        
+        if time_remaining.total_seconds() > 0:
+            remaining_formatted = self.format_timedelta(time_remaining)
+            print(f"{Colors.BOLD}Time Left:{Colors.ENDC}     {remaining_formatted} (~5h limit)")
+        else:
+            print(f"{Colors.BOLD}Time Left:{Colors.ENDC}     {Colors.WARNING}Session exceeded 5h limit{Colors.ENDC}")
+        
+        # Display session details
+        print(f"\n{Colors.BOLD}Tokens:{Colors.ENDC}        {active_session.total_tokens:,} / ~{monitoring_data.max_tokens_per_session:,}")
+        print(f"{Colors.BOLD}Session Cost:{Colors.ENDC}  ${active_session.cost_usd:.2f}\n")
 
     def render_waiting_display(self, monitoring_data: MonitoringData):
         """
@@ -464,39 +454,11 @@ class DisplayManager:
         Args:
             monitoring_data: Current monitoring data
         """
-        # Calculate window statistics
-        window_stats = self.calculate_window_stats(monitoring_data)
+        # Use new intensity-aware display
+        self.render_intensity_usage_display(monitoring_data)
         
-        if not window_stats.get('is_fallback'):
-            # Display 5-hour window information
-            remaining_windows = window_stats['remaining_windows']
-            total_windows = window_stats['total_windows']
-            
-            # Calculate percentage for progress bar
-            window_percentage = ((total_windows - remaining_windows) / total_windows * 100) if total_windows > 0 else 0
-            progress_bar = self.create_progress_bar(window_percentage)
-            
-            print(f"⏰ 5h Windows: {Colors.GREEN}{progress_bar}{Colors.ENDC} {remaining_windows}/{total_windows} remaining")
-            
-            # Current window information
-            current_prompts = window_stats['current_window_prompts']
-            max_prompts = window_stats['max_prompts_per_window']
-            plan_name = window_stats['plan_name'].replace('_', ' ')
-            
-            print(f"🔥 Current window: {current_prompts}/{max_prompts} prompts used ({plan_name} Plan)")
-            
-            # Show subscription period start
-            period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
-            days_remaining = (monitoring_data.billing_period_end.date() - datetime.now(timezone.utc).date()).days
-            print(f"📅 Started: {period_start} ({days_remaining} days remaining)")
-        else:
-            # Fallback to old display
-            print(f"\n{Colors.WARNING}Waiting for a new session to start...{Colors.ENDC}\n")
-            print(f"Saved max tokens: {monitoring_data.max_tokens_per_session:,}")
-            
-            # Show current subscription period start
-            period_start = monitoring_data.billing_period_start.strftime('%Y-%m-%d')
-            print(f"Current subscription period started: {period_start}")
+        # Waiting status
+        print(f"{Colors.BOLD}{Colors.CYAN}⏳  WAITING FOR SESSION{Colors.ENDC}\n")
         
         # Get stable timing suggestion with icon and colored time
         current_time = datetime.now()
@@ -506,14 +468,166 @@ class DisplayManager:
         colored_time = f"{color}{current_time.strftime('%H:%M')}{Colors.ENDC}"
         print(f"\n{icon} {color}{message}{Colors.ENDC} ({colored_time})\n")
 
+    def render_intensity_usage_display(self, monitoring_data: MonitoringData):
+        """
+        Render the new intensity-aware usage display.
+        
+        Args:
+            monitoring_data: Current monitoring data with usage intensity
+        """
+        try:
+            from ..shared.constants import SUBSCRIPTION_PLANS
+            from ..shared.utils import calculate_sustainability_status
+        except ImportError:
+            try:
+                from shared.constants import SUBSCRIPTION_PLANS
+                from shared.utils import calculate_sustainability_status
+            except ImportError:
+                from constants import SUBSCRIPTION_PLANS
+                from utils import calculate_sustainability_status
+        
+        # Get usage intensity data
+        usage_intensity = monitoring_data.usage_intensity
+        if not usage_intensity:
+            # Fall back to old display
+            window_stats = self.calculate_window_stats(monitoring_data)
+            self.render_window_usage_display(monitoring_data, window_stats)
+            return
+        
+        # Get plan info
+        plan_name = self.selected_plan or 'Max_5x'
+        plan_config = SUBSCRIPTION_PLANS.get(plan_name, SUBSCRIPTION_PLANS['Max_5x'])
+        
+        print(f"⚡ {Colors.HEADER}{Colors.BOLD}{plan_name.replace('_', ' ')} - Active Usage Tracking{Colors.ENDC}")
+        print(f"{Colors.HEADER}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.ENDC}")
+        print()
+        
+        # Current 5h Window
+        prompts_min = plan_config['prompts_per_window_min']
+        prompts_max = plan_config['prompts_per_window_max']
+        current_prompts = usage_intensity.user_prompts_current_window
+        
+        # Calculate progress percentage
+        prompts_percentage = min(100, (current_prompts / prompts_max) * 100)
+        progress_bar = self.create_progress_bar(prompts_percentage)
+        
+        print(f"🔥 {Colors.BOLD}Current 5-Hour Window{Colors.ENDC}")
+        print(f"   User Prompts: {Colors.GREEN}{current_prompts}/{prompts_min}-{prompts_max}{Colors.ENDC} {progress_bar} {prompts_percentage:.0f}%")
+        
+        # Show active sessions
+        if usage_intensity.active_sessions_count > 0:
+            intensity_color = Colors.GREEN if usage_intensity.active_sessions_count == 1 else Colors.WARNING
+            session_text = "session" if usage_intensity.active_sessions_count == 1 else "sessions"
+            print(f"   Active Sessions: {intensity_color}{usage_intensity.active_sessions_count} {session_text}{Colors.ENDC}")
+        
+        print()
+        
+        # Weekly Usage Capacity
+        print(f"📊 {Colors.BOLD}This Week - Usage Capacity{Colors.ENDC}")
+        
+        # Sonnet 4 usage
+        sonnet_min = plan_config['sonnet_weekly_min']
+        sonnet_max = plan_config['sonnet_weekly_max']
+        sonnet_used = usage_intensity.sonnet_hours_used
+        sonnet_percentage_min = (sonnet_used / sonnet_max) * 100
+        sonnet_percentage_max = (sonnet_used / sonnet_min) * 100
+        sonnet_bar = self.create_progress_bar(min(100, sonnet_percentage_min))
+        
+        print(f"   🧠 Sonnet 4: {Colors.BLUE}{sonnet_used:.1f}h/{sonnet_min}-{sonnet_max}h{Colors.ENDC} {sonnet_bar} {sonnet_percentage_min:.0f}% of range")
+        
+        # Opus 4 usage (if available)
+        if plan_config['has_opus']:
+            opus_min = plan_config['opus_weekly_min'] 
+            opus_max = plan_config['opus_weekly_max']
+            opus_used = usage_intensity.opus_hours_used
+            opus_percentage_min = (opus_used / opus_max) * 100 if opus_max > 0 else 0
+            opus_bar = self.create_progress_bar(min(100, opus_percentage_min))
+            
+            print(f"   💎 Opus 4: {Colors.CYAN}{opus_used:.1f}h/{opus_min}-{opus_max}h{Colors.ENDC} {opus_bar} {opus_percentage_min:.0f}% of range")
+        
+        print()
+        
+        # Intensity and Sustainability
+        print(f"⚡ {Colors.BOLD}Current Intensity:{Colors.ENDC} {usage_intensity.parallel_intensity:.1f}x", end="")
+        if usage_intensity.parallel_intensity > 1.2:
+            print(f" {Colors.WARNING}(using {usage_intensity.active_sessions_count} parallel instance{'s' if usage_intensity.active_sessions_count != 1 else ''}){Colors.ENDC}")
+        else:
+            print(f" {Colors.GREEN}(single instance usage){Colors.ENDC}")
+        
+        # Calculate sustainability
+        usage_metrics = {
+            'sonnet_hours_week': sonnet_used,
+            'opus_hours_week': usage_intensity.opus_hours_used
+        }
+        sustainability = calculate_sustainability_status(plan_name, usage_metrics)
+        
+        status_colors = {
+            'excellent': Colors.GREEN,
+            'good': Colors.GREEN, 
+            'moderate': Colors.CYAN,
+            'warning': Colors.WARNING,
+            'critical': Colors.FAIL
+        }
+        status_color = status_colors.get(sustainability['status'], Colors.ENDC)
+        
+        print(f"🎯 {Colors.BOLD}Sustainability:{Colors.ENDC} {status_color}{sustainability['message']}{Colors.ENDC}")
+        print()
+
+    def render_window_usage_display(self, monitoring_data: MonitoringData, window_stats: Dict[str, Any]):
+        """
+        Render the traditional window usage display (fallback).
+        
+        Args:
+            monitoring_data: Current monitoring data
+            window_stats: Window statistics
+        """
+        # This is the existing window display logic - preserved for fallback
+        if window_stats.get('is_fallback'):
+            return
+        
+        remaining_windows = window_stats['remaining_windows'] 
+        total_windows = window_stats['total_windows']
+        
+        # Progress bar for remaining windows
+        windows_percentage = ((total_windows - remaining_windows) / total_windows) * 100 if total_windows > 0 else 0
+        progress_bar = self.create_progress_bar(windows_percentage)
+        
+        print(f"⏰ 5h Windows: {Colors.GREEN}{progress_bar}{Colors.ENDC} {remaining_windows}/{total_windows} remaining")
+        
+        # Current window information
+        current_prompts = window_stats['current_window_prompts']
+        max_prompts = window_stats['max_prompts_per_window']
+        plan_name = window_stats['plan_name'].replace('_', ' ')
+        
+        # Progress bar for current window prompts  
+        prompts_percentage = (current_prompts / max_prompts) * 100 if max_prompts > 0 else 0
+        prompts_bar = self.create_progress_bar(prompts_percentage)
+        
+        print(f"🔥 Current window: {Colors.BLUE}{prompts_bar}{Colors.ENDC} {current_prompts}/{max_prompts} prompts ({plan_name})")
+
+    def create_progress_bar(self, percentage: float, width: int = 16) -> str:
+        """
+        Create a progress bar for the display.
+        
+        Args:
+            percentage: Percentage complete (0-100)
+            width: Width of progress bar
+            
+        Returns:
+            Formatted progress bar string
+        """
+        filled = int(width * percentage / 100)
+        bar = '█' * filled + '░' * (width - filled)
+        return f"[{bar}]"
+
     def render_footer(self, current_time: datetime, window_stats: Dict[str, Any],
                      days_remaining: int, total_cost: float, daemon_version: Optional[str] = None):
         """
-        Render footer with 5-hour window statistics and cost.
+        Render footer with usage statistics and cost.
         
         Args:
             current_time: Current local time
-            window_stats: Window usage statistics
+            window_stats: Window usage statistics (for fallback display)
             days_remaining: Days remaining in billing period
             total_cost: Total cost for the month
             daemon_version: Daemon version if available

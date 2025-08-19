@@ -250,6 +250,96 @@ class ActivitySessionData:
 
 
 @dataclass
+class UsageIntensityData:
+    """Tracks usage intensity and model-specific metrics."""
+    
+    # Current parallel sessions tracking
+    active_sessions_count: int = 0
+    parallel_intensity: float = 1.0  # Usage time / real time ratio
+    
+    # Weekly usage tracking (hours)
+    sonnet_hours_used: float = 0.0
+    opus_hours_used: float = 0.0
+    
+    # User prompts tracking (not responses)
+    user_prompts_current_window: int = 0
+    user_prompts_this_week: int = 0
+    
+    # Real time vs usage time
+    real_time_elapsed: float = 0.0  # Hours of real time
+    usage_time_accumulated: float = 0.0  # Hours of usage time (can be > real time)
+    
+    # Week tracking
+    week_start: Optional[datetime] = None
+    week_end: Optional[datetime] = None
+    
+    def calculate_efficiency_ratio(self) -> float:
+        """Calculate efficiency ratio (usage time / real time)."""
+        if self.real_time_elapsed <= 0:
+            return 1.0
+        return self.usage_time_accumulated / self.real_time_elapsed
+    
+    def get_total_weekly_hours(self) -> float:
+        """Get total weekly usage hours across all models."""
+        return self.sonnet_hours_used + self.opus_hours_used
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert UsageIntensityData to dictionary."""
+        data = asdict(self)
+        # Convert datetime objects to ISO format strings
+        data['week_start'] = self.week_start.isoformat() if self.week_start else None
+        data['week_end'] = self.week_end.isoformat() if self.week_end else None
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'UsageIntensityData':
+        """Create UsageIntensityData from dictionary."""
+        # Parse datetime strings back to datetime objects
+        week_start = datetime.fromisoformat(data['week_start']) if data['week_start'] else None
+        week_end = datetime.fromisoformat(data['week_end']) if data['week_end'] else None
+        
+        # Create new instance with parsed data
+        instance_data = data.copy()
+        instance_data['week_start'] = week_start  
+        instance_data['week_end'] = week_end
+        
+        return cls(**instance_data)
+    
+    def validate_schema(self) -> bool:
+        """Validate the UsageIntensityData against schema rules."""
+        # Check non-negative values
+        if self.active_sessions_count < 0:
+            raise ValidationError(f"active_sessions_count must be non-negative, got {self.active_sessions_count}")
+        
+        if self.parallel_intensity < 0:
+            raise ValidationError(f"parallel_intensity must be non-negative, got {self.parallel_intensity}")
+            
+        if self.sonnet_hours_used < 0:
+            raise ValidationError(f"sonnet_hours_used must be non-negative, got {self.sonnet_hours_used}")
+            
+        if self.opus_hours_used < 0:
+            raise ValidationError(f"opus_hours_used must be non-negative, got {self.opus_hours_used}")
+            
+        if self.user_prompts_current_window < 0:
+            raise ValidationError(f"user_prompts_current_window must be non-negative, got {self.user_prompts_current_window}")
+            
+        if self.user_prompts_this_week < 0:
+            raise ValidationError(f"user_prompts_this_week must be non-negative, got {self.user_prompts_this_week}")
+        
+        if self.real_time_elapsed < 0:
+            raise ValidationError(f"real_time_elapsed must be non-negative, got {self.real_time_elapsed}")
+            
+        if self.usage_time_accumulated < 0:
+            raise ValidationError(f"usage_time_accumulated must be non-negative, got {self.usage_time_accumulated}")
+        
+        # Check week consistency if both dates provided
+        if self.week_start and self.week_end and self.week_start >= self.week_end:
+            raise ValidationError("week_end must be after week_start")
+        
+        return True
+
+
+@dataclass
 class MonitoringData:
     """Represents aggregated monitoring data for the current period."""
     
@@ -262,6 +352,7 @@ class MonitoringData:
     billing_period_end: datetime
     daemon_version: Optional[str] = None
     activity_sessions: List[ActivitySessionData] = None
+    usage_intensity: Optional[UsageIntensityData] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert MonitoringData to dictionary."""
@@ -274,7 +365,8 @@ class MonitoringData:
             'billing_period_start': self.billing_period_start.isoformat(),
             'billing_period_end': self.billing_period_end.isoformat(),
             'daemon_version': self.daemon_version,
-            'activity_sessions': [activity.to_dict() for activity in (self.activity_sessions or [])]
+            'activity_sessions': [activity.to_dict() for activity in (self.activity_sessions or [])],
+            'usage_intensity': self.usage_intensity.to_dict() if self.usage_intensity else None
         }
     
     @classmethod
@@ -282,6 +374,7 @@ class MonitoringData:
         """Create MonitoringData from dictionary."""
         current_sessions = [SessionData.from_dict(session_data) for session_data in data['current_sessions']]
         activity_sessions = [ActivitySessionData.from_dict(activity_data) for activity_data in data.get('activity_sessions', [])]
+        usage_intensity = UsageIntensityData.from_dict(data['usage_intensity']) if data.get('usage_intensity') else None
         
         return cls(
             current_sessions=current_sessions,
@@ -292,7 +385,8 @@ class MonitoringData:
             billing_period_start=datetime.fromisoformat(data['billing_period_start']),
             billing_period_end=datetime.fromisoformat(data['billing_period_end']),
             daemon_version=data.get('daemon_version'),
-            activity_sessions=activity_sessions if activity_sessions else None
+            activity_sessions=activity_sessions if activity_sessions else None,
+            usage_intensity=usage_intensity
         )
     
     def to_json(self) -> str:
@@ -329,6 +423,10 @@ class MonitoringData:
         if self.activity_sessions:
             for activity_session in self.activity_sessions:
                 activity_session.validate_schema()
+        
+        # Validate usage intensity data
+        if self.usage_intensity:
+            self.usage_intensity.validate_schema()
         
         return True
 
