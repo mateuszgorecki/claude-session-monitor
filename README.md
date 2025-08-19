@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/ryoppippi/ccusage/main/install.sh |
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 3. Clone and setup project
-git clone https://github.com/emssik/claude-session-monitor.git
+git clone https://github.com/mateuszgorecki/claude-session-monitor.git
 cd claude-session-monitor
 uv venv
 
@@ -71,7 +71,7 @@ uv run python3 claude_client.py
 
 3. **Clone and setup:**
    ```bash
-   git clone https://github.com/emssik/claude-session-monitor.git
+   git clone https://github.com/mateuszgorecki/claude-session-monitor.git
    cd claude-session-monitor
    uv venv
    ```
@@ -102,7 +102,7 @@ uv run python3 claude_client.py
 
 2. **Download the script:**
    ```bash
-   curl -O https://raw.githubusercontent.com/emssik/claude-session-monitor/main/claude_monitor.py
+   curl -O https://raw.githubusercontent.com/mateuszgorecki/claude-session-monitor/main/claude_monitor.py
    ```
 
 3. **Run directly:**
